@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/contextgist-ffi",
+]
+
+[workspace.dependencies]
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+uniffi     = "0.32"
+
+[profile.release]
+# Must stay "unwind" — ffi_catch-style panic containment in contextgist-ffi
+# relies on catch_unwind, which is a no-op under panic = "abort".
+panic = "unwind"
