@@ -1,0 +1,71 @@
+name: contextGIST
+options:
+  bundleIdPrefix: com.contextgist
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  contextGIST:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        type: group
+      - path: Generated
+        type: group
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.contextgist.macos
+        PRODUCT_NAME: contextGIST
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: contextGIST.entitlements
+        # contextgist-ffi is linked directly as a staticlib (no .xcframework
+        # — macOS-only for now, see tools/gen-bindings.sh) built into
+        # ../../target/<debug|release>/.
+        LIBRARY_SEARCH_PATHS:
+          - "$(SRCROOT)/../../target/debug"
+          - "$(SRCROOT)/../../target/release"
+        OTHER_LDFLAGS: -lcontextgist_ffi
+        # Without an .xcframework (which bundles its own discoverable module
+        # map), Swift/Clang need to be told explicitly where
+        # contextgist_ffiFFI.modulemap lives — both as a header search path
+        # (for `#if canImport(contextgist_ffiFFI)`) and via an explicit
+        # -fmodule-map-file so Clang actually loads it as that module.
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Generated"
+        SWIFT_INCLUDE_PATHS: "$(SRCROOT)/Generated"
+        OTHER_SWIFT_FLAGS: "-Xcc -fmodule-map-file=$(SRCROOT)/Generated/contextgist_ffiFFI.modulemap"
+        # Disable Xcode 14+ script sandboxing so the pre-build script can
+        # invoke cargo and write into Generated/.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      - name: Generate uniffi bindings
+        script: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if ! "$SRCROOT/../../tools/gen-bindings.sh"; then
+            if [ ! -d "$SRCROOT/Generated" ] || [ -z "$(ls -A "$SRCROOT/Generated" 2>/dev/null)" ]; then
+              echo "error: uniffi binding generation failed and no pre-generated bindings exist." >&2
+              exit 1
+            else
+              echo "warning: uniffi binding generation failed; using cached bindings." >&2
+            fi
+          fi
+        basedOnDependencyAnalysis: false
+        inputFiles: []
+        outputFiles: []
+
+schemes:
+  contextGIST:
+    build:
+      targets:
+        contextGIST: all
+    run:
+      config: Debug

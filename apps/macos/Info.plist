@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>contextGIST</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.contextgist.macos</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 contextGIST Contributors. MIT Licence.</string>
+
+    <!-- Accessory app: no Dock icon, no app-switcher entry. macOS launches
+         it on demand when the Services item fires and keeps it around only
+         for as long as the popup window is open. -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Services menu registration. AppServiceProvider (see
+         AppDelegate.swift) implements readSelection(_:userData:error:),
+         which macOS invokes with the current selection on the pasteboard
+         whenever the user picks this item from an app's Services submenu
+         (or its context-menu mirror) with text selected. Input-only: no
+         NSReturnTypes, since contextGIST never writes back to the
+         pasteboard or the source document. -->
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict>
+                <key>default</key>
+                <string>Speed Read with contextGIST</string>
+            </dict>
+            <key>NSMessage</key>
+            <string>readSelection</string>
+            <key>NSSendTypes</key>
+            <array>
+                <string>public.utf8-plain-text</string>
+                <string>NSStringPboardType</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,29 @@
+[package]
+name = "contextgist-ffi"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+# Reused as-is from GIST (~/develop/reader) via path dependency — see
+# CLAUDE.md's "Relationship to GIST" section. No local fork/copy: pacing and
+# tokenization stay in sync with upstream automatically.
+gist-model     = { path = "../../../reader/crates/gist-model" }
+gist-parse-txt = { path = "../../../reader/crates/gist-parse-txt" }
+gist-rsvp      = { path = "../../../reader/crates/gist-rsvp" }
+uniffi         = { workspace = true }
+
+[features]
+# Pulls in uniffi's clap-based CLI so `uniffi-bindgen` can be built and
+# installed as a standalone binary (uniffi 0.28+ no longer ships one on
+# crates.io). Not enabled for the library build. Mirrors gist-ffi's Cargo.toml.
+uniffi-bindgen-bin = ["uniffi/cli"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["uniffi-bindgen-bin"]

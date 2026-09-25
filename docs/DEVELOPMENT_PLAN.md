@@ -1,0 +1,217 @@
+# Development plan
+
+Written 2026-09-25, after the macOS app's first working build and a
+security review ([`docs/SECURITY_REVIEW.md`](./SECURITY_REVIEW.md)). This
+plan does two things: closes the gaps that review found, and lays out
+adding contextGIST's capability to Windows 11, iPhone, iPad, Linux, and
+Chrome — in that order for a reason explained per-phase below.
+
+Read [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) first if you haven't —
+this plan assumes its framing (narrow reuse of GIST's Rust core, no
+persistence, one popup per invocation).
+
+## Guiding constraint: don't hand-port the pacing engine a third time
+
+`PacingEngine` in `apps/macos/Sources/RsvpView.swift` is already a
+hand-ported Swift copy of `gist_rsvp`'s wall-clock pacing math, "kept in
+sync by comment reference" per the architecture doc — i.e. by a human
+remembering to check. We already found one real bug in a piece of
+platform-specific UI code that had no upstream equivalent to copy from (the
+ORP-centering flicker — see the GitHub issue filed against
+`~/develop/reader`). Every additional hand-port of the *pacing* logic
+itself (not just UI) is another opportunity for exactly that kind of
+silent divergence, and pacing correctness is the one thing this whole
+project exists to get right.
+
+So the platform order below is chosen to maximize reuse of the *existing*
+Rust core and Swift port before introducing a second implementation
+language, and Phase 2 explicitly builds a second reusable core (WASM)
+specifically so Chrome/Windows/Linux don't each need their own hand-port
+either.
+
+## Phase 0 — Harden the macOS baseline (do this first)
+
+Every later phase either reuses this code directly (iOS/iPadOS) or reuses
+its *shape* (everyone else). Fix it once, here, before multiplying it.
+
+- [ ] Cap accepted selection length in `AppServiceProvider.readSelection`
+  (finding #1) with a clean user-facing error above the cap.
+- [ ] Move `tokenize(text:)`/`DisplayToken` construction off the main
+  thread, or show a loading state for large-but-under-cap input.
+- [ ] Add adversarial-input tests against `gist-parse-txt`/`gist-rsvp`
+  (long words, bidi/RTL text, zero-width joiners, degenerate whitespace) —
+  a panic here is what would trigger finding #1's crash-report exposure.
+- [ ] Decide and document the memory-scrubbing stance (finding #2) — even
+  if the decision is "encrypted swap is enough, we're not doing explicit
+  zeroing," write down *why* so it's a decision, not an oversight.
+- [ ] Prove out real Developer ID signing + Hardened Runtime + notarization
+  on a Release build (finding #3) — do this before, not during, the first
+  time this leaves the current machine.
+- [ ] Mirror `~/develop/reader/deny.toml`'s license/advisory policy in this
+  workspace's `Cargo.toml` (finding #4).
+- [ ] Install `cargo-audit` (or `cargo-deny`) in CI once CI exists — no CI
+  exists yet, so there's currently no automated dependency-vulnerability
+  gate at all.
+
+## Phase 1 — iPhone / iPadOS: Share Extension
+
+**Why first**: lowest effort of the five, because almost everything is
+already built. `crates/contextgist-ffi` already exports through uniffi to
+Swift; the Swift port of the pacing math and the ORP-centered `WordDisplay`
+already exist in `apps/macos/Sources/RsvpView.swift`; SwiftUI views are
+largely cross-platform as-is. This phase is mostly *packaging*, not new
+logic — which also makes it the cheapest place to prove the Phase 0 input
+cap actually matters: iOS App Extensions run under a hard memory ceiling
+(historically tens of MB for a Share Extension) and get jetsam-killed, not
+gracefully degraded, if they exceed it. A 256 MB tokenized-text buffer that
+was merely slow on macOS is fatal here — Phase 0's cap becomes load-bearing,
+not just tidy.
+
+- [ ] Add an iOS/iPadOS target + a Share Extension target to `project.yml`
+  (same XcodeGen tool, new platform entries).
+  `gen-bindings.sh` already builds `contextgist-ffi` for "the host arch"
+  only — extend it (or add a sibling script) to build for iOS device +
+  simulator slices via `cargo build --target aarch64-apple-ios` etc., and
+  decide whether to introduce the `.xcframework` step GIST's own repo uses
+  (contextGIST deliberately skipped it for macOS-only — that reasoning no
+  longer holds once iOS is in the picture).
+- [ ] Share Extension entry point: `NSExtensionActivationRule` restricted to
+  plain text (mirrors the macOS `NSSendTypes` restriction — same "input
+  only" principle from Security Review strength #6).
+- [ ] Reuse `RsvpView`/`RsvpPlayer`/`PacingEngine`/`WordDisplay` as a shared
+  Swift source group between the macOS and iOS targets rather than
+  duplicating — this is the whole point of doing iOS second.
+- [ ] Re-verify every Phase 0 item actually holds under the extension's
+  memory ceiling (this is where the cap gets load-bearing, per above).
+- [ ] App Store review: sandboxed, no network, no persistence — should be a
+  straightforward privacy story, but confirm the App Privacy "nutrition
+  label" answers match reality (no data collected, full stop) before
+  submitting.
+
+## Phase 2 — Build a WASM core (foundation for Chrome, later Windows/Linux)
+
+**Why before Chrome**: same "don't hand-port pacing a third time" reasoning
+as above. Compile `gist-model`/`gist-parse-txt`/`gist-rsvp` to WASM via
+`wasm-bindgen`, exposing the same three-function surface
+`contextgist-ffi` already settled on (`tokenize`, `default_config`,
+`orp_index`) — a new thin crate, e.g. `crates/contextgist-wasm`, mirroring
+`contextgist-ffi`'s shape rather than modifying it.
+
+- [ ] New `contextgist-wasm` crate: same three pure functions, same path
+  dependencies into `~/develop/reader/crates/`, `wasm-bindgen` instead of
+  `uniffi`.
+- [ ] Port `PacingEngine`'s wall-clock tick logic to TypeScript/JS *once*,
+  written against this WASM module — this becomes the JS-side reference the
+  same way the Swift `PacingEngine` is the Swift-side reference. Document
+  the sync relationship the same way `RsvpView.swift`'s header comment
+  already does for Swift, so the next platform doesn't have to rediscover
+  this convention.
+- [ ] Note on the FFI-per-tick question: the architecture doc explains why
+  GIST's Swift shell avoids driving playback through FFI every frame
+  (uniffi/ObjC-bridge round-trip jitter). A same-process WASM call has
+  different, generally lower and more deterministic overhead than crossing
+  a language-runtime IPC-style bridge — worth actually measuring before
+  assuming the same avoidance is necessary here, rather than copying the
+  constraint by default. If ticking through WASM directly is smooth, that's
+  a simpler design than another hand-ported wall-clock engine.
+- [ ] Property/golden tests: feed the same fixed set of inputs to
+  `contextgist-ffi` (Swift/uniffi) and `contextgist-wasm`, assert identical
+  token streams, ORP indices, and durations. This is the concrete guard
+  against the "kept in sync by comment reference" fragility — turn the
+  comment into a test.
+
+## Phase 3 — Chrome extension
+
+Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
+
+- [ ] Manifest V3, minimal permissions: `contextMenus` only. Chrome's
+  `contextMenus` API delivers the selected text directly via
+  `info.selectionText` when the menu item fires — **no `activeTab`, no host
+  permissions, and no content-script injection needed**, which both
+  minimizes attack surface and matches contextGIST's existing "narrow,
+  input-only" design principle (Security Review strength #6) better than
+  any content-script-based approach would.
+- [ ] Render the popup as a dedicated extension window
+  (`chrome.windows.create({type: "popup"})`) rather than an in-page overlay
+  — avoids fighting the host page's CSS/CSP and keeps the same "floating,
+  separate window" feel as the macOS `NSWindow`.
+- [ ] CSP: Manifest V3 requires `'wasm-unsafe-eval'` in the extension's CSP
+  to run WASM — standard and allowed, just don't forget it.
+- [ ] No network calls, no remote code, no data collection — should map to
+  a clean Chrome Web Store privacy disclosure; write it accurately rather
+  than from a template.
+- [ ] Firefox/Edge/Safari-extension portability is a near-free follow-on
+  once the Manifest V3 + WASM core exists (Edge is Chromium already; Safari
+  Web Extensions and Firefox both support the same `contextMenus`+WASM
+  shape with small manifest differences) — not in scope for this plan, but
+  worth noting so Phase 3's design doesn't accidentally lock into a
+  Chrome-only API.
+
+## Phase 4 — Windows 11
+
+- [ ] **Recommended shell: Tauri.** Reuses `contextgist-ffi`-shaped Rust
+  core as a native Rust dependency directly (no WASM layer needed on
+  desktop — that's a browser constraint, not a Windows one), small
+  footprint, and the same shell can very likely be reused for Phase 5
+  (Linux) with only packaging differences.
+- [ ] **Entry point, primary**: register as a Windows Share Target (the
+  Share contract most text-capable apps already support) — the closest
+  real analog to macOS Services. Not universal (not every app implements
+  Share), but clean and requires no synthetic input.
+- [ ] **Entry point, fallback, flag explicitly to the user before
+  building**: a global hotkey that programmatically sends Ctrl+C to grab
+  the current selection when the target app has no Share support. This is
+  a real security/privacy tradeoff, not a free convenience feature — it
+  (a) requires input-simulation privileges, and (b) **overwrites the
+  user's actual clipboard**, which can propagate into Windows Clipboard
+  History and any cloud clipboard sync the user has enabled. If built:
+  save and restore the clipboard's prior contents immediately after
+  reading, and disclose the momentary clipboard overwrite in the UI, not
+  just a changelog.
+- [ ] Packaging: MSIX with a minimal capability list (no network, no
+  filesystem capabilities declared — mirror the macOS entitlements file's
+  "sandboxed, nothing extra" posture), signed with a real code-signing
+  cert to avoid SmartScreen friction, Microsoft Store distribution
+  preferred for the trust baseline it gives for free.
+
+## Phase 5 — Linux
+
+- [ ] Reuse the Tauri shell from Phase 4 where possible; packaging is the
+  main divergence (target Flatpak for the sandboxing story it gives —
+  comparable in spirit to the macOS App Sandbox entitlement).
+- [ ] **Entry point — needs an early spike before committing, flagged as
+  higher-uncertainty than every other phase in this plan**: there is no
+  single Linux desktop-integration standard the way Services/Share/
+  context-menu APIs exist elsewhere. The most promising angle is X11's
+  PRIMARY selection (the buffer that's already populated by the act of
+  selecting text, no explicit copy needed — genuinely the closest
+  behavioral match to macOS's Services flow of any option across any
+  platform in this plan) via `xclip`/direct X11 calls, bound to a
+  user-configured global shortcut. Wayland support for the equivalent
+  primary-selection buffer is compositor-dependent (`wl-clipboard` covers
+  some but not all compositors) and needs to be spiked rather than assumed.
+  Flatpak's portal model may also restrict clipboard/input-capture access
+  in ways that need checking against whatever this spike lands on.
+- [ ] Because of the above, don't sequence Linux work assuming a fixed
+  design going in — budget explicit spike time before the "real" Linux
+  build starts.
+
+## Cross-cutting, ongoing across all phases
+
+- [ ] **Behavioral parity tests**: the golden-file approach from Phase 2
+  (same fixed inputs → identical tokenization/ORP/duration output) should
+  extend to cover every shipped core (Swift/uniffi, WASM, native Rust in
+  Tauri) as each one comes online — this is the concrete answer to "how do
+  we know pacing hasn't silently drifted between platforms," which is
+  otherwise just trust.
+- [ ] **Security baseline checklist per platform**, carried from
+  `docs/SECURITY_REVIEW.md`'s "strengths worth preserving" list: sandboxed
+  (or platform-equivalent), no network capability, no telemetry, no
+  logging of selected text, input-only (no write-back to clipboard/
+  source), memory-safe core. Treat any platform where one of these can't be
+  matched (the Windows clipboard fallback in Phase 4 is the one already
+  identified) as requiring explicit disclosure, not silent scope creep.
+- [ ] Re-run a security review pass (informal is fine) at the end of each
+  phase before that platform ships — this doc's Phase 0 review was cheap
+  precisely because the codebase was still small; don't let five platforms'
+  worth of code accumulate before the next real look.
