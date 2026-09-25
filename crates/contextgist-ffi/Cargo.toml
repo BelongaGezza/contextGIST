@@ -6,7 +6,18 @@ publish = false
 license = "MIT"
 
 [lib]
-crate-type = ["staticlib", "cdylib", "rlib"]
+# staticlib only — apps/macos/project.yml links this in directly as a
+# static library (see its OTHER_LDFLAGS comment; no .xcframework here,
+# unlike GIST). Do NOT add "cdylib" back: when both a .a and a .dylib of
+# the same name exist in the linker's search path, `-lcontextgist_ffi`
+# silently prefers the .dylib over the .a. That dylib's install name is
+# Cargo's raw absolute build path (not portable), and it's signed
+# separately from the app — which passes fine under a Debug build (Xcode
+# disables Hardened Runtime for ad-hoc Debug signing) but fails Hardened
+# Runtime's library-validation check under Release ("Library not loaded
+# ... different Team IDs"), crashing the app on every launch. Caused a
+# real outage of the Services menu item on 2026-09-25 — see git history.
+crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 # Reused as-is from GIST (~/develop/reader) via path dependency — see
