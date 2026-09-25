@@ -294,9 +294,16 @@ private let wordDisplayCharWidth: CGFloat = {
 }()
 
 /// Centers a word around its ORP character by offsetting the whole row by
-/// half the (prefix width − suffix width), so the focal letter's x-position
+/// half the (suffix width − prefix width), so the focal letter's x-position
 /// stays fixed regardless of word length — the standard RSVP "reticle"
-/// technique. Widths are computed synchronously from character counts
+/// technique. SwiftUI centers the HStack as a unit within its frame by
+/// default, which leaves the focus character sitting (prefixWidth −
+/// suffixWidth) / 2 off from true center — this offset is exactly that
+/// value's negation, cancelling it out. (Getting this backwards — i.e.
+/// applying (prefixWidth − suffixWidth) / 2 — doesn't just fail to center
+/// the word, it doubles the natural off-center displacement in the same
+/// direction, which is a much more visible bug than it sounds like from the
+/// formula alone.) Widths are computed synchronously from character counts
 /// (monospaced font) rather than via GeometryReader/PreferenceKey, which
 /// would lag a render frame behind each word change and make the reticle
 /// visibly jump.
@@ -313,7 +320,7 @@ private struct WordDisplay: View {
             Text(parts.suffix)
         }
         .font(wordDisplayFont)
-        .offset(x: (prefixWidth - suffixWidth) / 2)
+        .offset(x: (suffixWidth - prefixWidth) / 2)
         .frame(maxWidth: .infinity, minHeight: 60)
     }
 }
