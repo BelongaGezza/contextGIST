@@ -20,9 +20,12 @@ file explains exactly what must stay in sync and why.
 
 Also see [`docs/SECURITY_REVIEW.md`](./docs/SECURITY_REVIEW.md) (point-in-time
 manual review, 2026-09-25 — re-check its findings before any public
-distribution) and [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md)
+distribution), [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md)
 (remediation for that review, plus the phased plan for iOS/iPadOS, a WASM
-core, Chrome, Windows 11, and Linux).
+core, Chrome, Windows 11, and Linux), and
+[`docs/MACOS_GUIDE.md`](./docs/MACOS_GUIDE.md) (install/use/remove for the
+current macOS build — there's no signed release yet, so this is the only
+way to run it today).
 
 ## Relationship to GIST (~/develop/reader)
 
