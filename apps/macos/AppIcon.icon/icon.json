@@ -1,0 +1,20 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.14118,0.12157,0.13333,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "artwork.png",
+          "name" : "artwork"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "macOS"
+    ]
+  }
+}
