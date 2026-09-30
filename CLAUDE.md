@@ -92,8 +92,9 @@ new source file (XcodeGen needs to re-scan `Sources/`).
   SwiftUI view, the `RsvpPlayer`/`PacingEngine` playback logic (a Swift
   port of `gist-rsvp`'s pacing math — see architecture doc), and the
   ORP-centered word display.
-- **`tools/gen-bindings.sh`** — builds `contextgist-ffi` for the host arch
-  and regenerates `apps/macos/Generated/*.swift`. No `.xcframework` step
+- **`tools/gen-bindings.sh`** — builds `contextgist-ffi` (host arch for
+  Debug; a lipo'd arm64 + x86_64 staticlib in `target/universal/release/`
+  for Release) and regenerates `apps/macos/Generated/*.swift`. No `.xcframework` step
   (unlike GIST) — `apps/macos/project.yml` links the staticlib directly via
   `LIBRARY_SEARCH_PATHS`/`OTHER_LDFLAGS`, since this is macOS-only.
 

@@ -11,14 +11,14 @@ settings:
     SWIFT_VERSION: 5.9
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Automatic
-    # tools/gen-bindings.sh only builds contextgist-ffi's staticlib for the
-    # host arch (see its header comment) — there's no universal-binary
-    # (arm64 + x86_64) build of the Rust core yet, so Xcode must be told to
-    # link only the active arch too, or Release builds fail linking the
-    # slice that has no matching staticlib. Revisit once cross-arch/lipo
-    # support is added to gen-bindings.sh (tracked in docs/DEVELOPMENT_PLAN.md
-    # under signing/distribution work).
-    ONLY_ACTIVE_ARCH: YES
+  # tools/gen-bindings.sh builds a host-arch-only staticlib for Debug and a
+  # universal (arm64 + x86_64) one for Release, so Debug links only the
+  # active arch and Release builds both (ARCHS defaults to arm64 x86_64).
+  configs:
+    Debug:
+      ONLY_ACTIVE_ARCH: YES
+    Release:
+      ONLY_ACTIVE_ARCH: NO
 
 targets:
   contextGIST:
@@ -61,6 +61,11 @@ targets:
         # Disable Xcode 14+ script sandboxing so the pre-build script can
         # invoke cargo and write into Generated/.
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+      configs:
+        Debug:
+          LIBRARY_SEARCH_PATHS: "$(SRCROOT)/../../target/debug"
+        Release:
+          LIBRARY_SEARCH_PATHS: "$(SRCROOT)/../../target/universal/release"
     preBuildScripts:
       - name: Generate uniffi bindings
         # Fails the Xcode build if gen-bindings.sh fails. It used to fall back
