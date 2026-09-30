@@ -63,15 +63,22 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: NO
     preBuildScripts:
       - name: Generate uniffi bindings
+        # Fails the Xcode build if gen-bindings.sh fails. It used to fall back
+        # to cached bindings with only a warning, but gen-bindings.sh also
+        # builds the contextgist-ffi staticlib, so that fallback silently
+        # linked a stale target/<config>/libcontextgist_ffi.a and still
+        # reported BUILD SUCCEEDED (hit on 2026-09-30 with a corrupted
+        # target/release cache). A missing uniffi-bindgen is not a failure:
+        # gen-bindings.sh already exits 0 and keeps existing bindings then.
         script: |
           export PATH="$HOME/.cargo/bin:$PATH"
           if ! "$SRCROOT/../../tools/gen-bindings.sh"; then
-            if [ ! -d "$SRCROOT/Generated" ] || [ -z "$(ls -A "$SRCROOT/Generated" 2>/dev/null)" ]; then
-              echo "error: uniffi binding generation failed and no pre-generated bindings exist." >&2
-              exit 1
-            else
-              echo "warning: uniffi binding generation failed; using cached bindings." >&2
-            fi
+            echo "error: tools/gen-bindings.sh failed (see output above); refusing to link a possibly stale contextgist-ffi. If cargo reports 'mis-aligned LINKEDIT string pool', run 'cargo clean --release' (or plain 'cargo clean' for Debug) and rebuild." >&2
+            exit 1
+          fi
+          if [ -z "$(ls -A "$SRCROOT/Generated" 2>/dev/null)" ]; then
+            echo "error: no uniffi bindings in apps/macos/Generated/. Install uniffi-bindgen (see tools/gen-bindings.sh) and rebuild." >&2
+            exit 1
           fi
         basedOnDependencyAnalysis: false
         inputFiles: []
