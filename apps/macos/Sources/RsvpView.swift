@@ -185,31 +185,70 @@ private final class RsvpPlayer: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var isPlaying = false
     @Published private(set) var wpm: UInt32
+    /// True until the selection has been tokenized off the main thread.
+    @Published private(set) var isLoading = true
 
-    private let tokens: [DisplayToken]
+    private var tokens: [DisplayToken] = []
+    /// `wordsThrough[i]` = number of word tokens in `tokens[0...i]`.
+    /// Precomputed at load so `progressText`, which is read on every tick,
+    /// is O(1) instead of rescanning up to ~90k tokens per word shown.
+    private var wordsThrough: [Int] = []
     private let config: FfiRsvpConfig
     private var engine: PacingEngine
     private var tickTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
 
     var currentToken: DisplayToken? {
         tokens.indices.contains(currentIndex) ? tokens[currentIndex] : nil
     }
 
     var progressText: String? {
-        let wordCount = tokens.filter { $0.kind == .word }.count
-        guard wordCount > 0 else { return nil }
-        let wordsShown = tokens[...currentIndex].filter { $0.kind == .word }.count
-        return "\(wordsShown) / \(wordCount)"
+        guard let wordCount = wordsThrough.last, wordCount > 0,
+              wordsThrough.indices.contains(currentIndex) else { return nil }
+        return "\(wordsThrough[currentIndex]) / \(wordCount)"
     }
+
+    /// Loaded, but the selection had no words (e.g. whitespace only).
+    var isEmpty: Bool { !isLoading && wordsThrough.last ?? 0 == 0 }
 
     var isAtEnd: Bool { currentIndex >= tokens.count - 1 }
 
+    /// Starts tokenizing `text` off the main thread and begins playback when
+    /// it's ready. The popup renders a loading state meanwhile, so a large
+    /// (but under-cap, see `AppServiceProvider.maxSelectionBytes`) selection
+    /// never blocks the main thread. SECURITY_REVIEW.md finding #1.
     init(text: String) {
-        let ffiTokens = tokenize(text: text)
-        tokens = ffiTokens.map(DisplayToken.init)
         config = defaultConfig()
         wpm = config.wpm
         engine = PacingEngine(cursor: 0)
+        loadTask = Task { [weak self] in
+            let prepared = await Task.detached(priority: .userInitiated) {
+                Self.prepare(text)
+            }.value
+            // Window closed while loading: drop the result.
+            guard let self, !Task.isCancelled else { return }
+            self.tokens = prepared.tokens
+            self.wordsThrough = prepared.wordsThrough
+            self.isLoading = false
+            self.play()
+        }
+    }
+
+    deinit {
+        loadTask?.cancel()
+        tickTask?.cancel()
+    }
+
+    private nonisolated static func prepare(_ text: String) -> (tokens: [DisplayToken], wordsThrough: [Int]) {
+        let tokens = tokenize(text: text).map(DisplayToken.init)
+        var wordsThrough: [Int] = []
+        wordsThrough.reserveCapacity(tokens.count)
+        var count = 0
+        for token in tokens {
+            if token.kind == .word { count += 1 }
+            wordsThrough.append(count)
+        }
+        return (tokens, wordsThrough)
     }
 
     func play() {
@@ -358,7 +397,18 @@ struct RsvpView: View {
             // Fixed reticle mark above the ORP focal column.
             Text("▾").font(.caption).foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            WordDisplay(token: player.currentToken)
+            if player.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(minHeight: 60)
+                    .accessibilityLabel("Preparing text")
+            } else if player.isEmpty {
+                Text("No words to read in this selection.")
+                    .foregroundStyle(.secondary)
+                    .frame(minHeight: 60)
+            } else {
+                WordDisplay(token: player.currentToken)
+            }
 
             if let progressText = player.progressText {
                 Text(progressText)
@@ -400,6 +450,7 @@ struct RsvpView: View {
                 .accessibilityLabel("Fast-forward 5 words")
             }
             .buttonStyle(.borderless)
+            .disabled(player.isLoading || player.isEmpty)
             .font(.system(size: 20))
 
             VStack(spacing: 4) {
@@ -428,6 +479,5 @@ struct RsvpView: View {
                 .keyboardShortcut(.escape, modifiers: [])
                 .opacity(0)
         )
-        .onAppear { player.play() }
     }
 }
