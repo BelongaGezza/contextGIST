@@ -108,6 +108,13 @@ workspace/registry) and adopt the same `deny.toml` convention. This also
 directly sets up the multi-platform plan below, which needs a real answer
 to "what does the shared core crate look like" anyway.
 
+**Update 2026-09-30:** still open, but mitigated for solo dev. The tested
+upstream commit is now recorded in `docs/ARCHITECTURE.md` ("Upstream
+baseline"), with a re-review procedure. `cargo deny --exclude-dev check
+licenses bans sources --config ~/develop/reader/deny.toml` passes against
+this workspace. That borrows GIST's policy file rather than mirroring it,
+so the Phase 0 item stays open.
+
 ## Strengths worth preserving on every future platform
 
 These aren't gaps — they're the baseline every new platform target should

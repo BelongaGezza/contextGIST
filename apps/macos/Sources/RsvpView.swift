@@ -89,7 +89,11 @@ private struct PacingEngine {
     }
 
     private static func elapsedMs(from start: Date, to now: Date) -> UInt64 {
-        UInt64(max(0, now.timeIntervalSince(start)) * 1000)
+        // Round before truncating to UInt64: floating-point error (e.g. a
+        // 0.400s interval materializing as 0.39999999999999997) would
+        // otherwise truncate to 399ms. Mirrors the same fix in GIST's
+        // RsvpWallClockEngine.elapsedMs (reader commit 6717ca5).
+        UInt64((max(0, now.timeIntervalSince(start)) * 1000).rounded())
     }
 
     static func tokenDurationMs(tokens: [DisplayToken], config: FfiRsvpConfig, wpm: UInt32, idx: Int) -> UInt64 {
@@ -322,6 +326,14 @@ private struct WordDisplay: View {
         .font(wordDisplayFont)
         .offset(x: (suffixWidth - prefixWidth) / 2)
         .frame(maxWidth: .infinity, minHeight: 60)
+        // VoiceOver: read the word as one element, not three fragments
+        // split at the ORP letter. `.updatesFrequently` stops VoiceOver
+        // from announcing every word change during playback (at 250+ WPM
+        // that would be a stream of interruptions); the user can still
+        // focus the element to hear the current word.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(token?.text ?? "")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
@@ -345,6 +357,7 @@ struct RsvpView: View {
 
             // Fixed reticle mark above the ORP focal column.
             Text("▾").font(.caption).foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             WordDisplay(token: player.currentToken)
 
             if let progressText = player.progressText {
@@ -352,6 +365,7 @@ struct RsvpView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .accessibilityLabel(progressText.replacingOccurrences(of: " / ", with: " of "))
             }
 
             Spacer()
@@ -364,6 +378,7 @@ struct RsvpView: View {
                 }
                 .keyboardShortcut(.leftArrow, modifiers: [])
                 .help("Rewind 5 words")
+                .accessibilityLabel("Rewind 5 words")
 
                 Button {
                     player.togglePlayPause()
@@ -373,6 +388,7 @@ struct RsvpView: View {
                 }
                 .keyboardShortcut(.space, modifiers: [])
                 .help(player.isPlaying ? "Pause" : "Play")
+                .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
 
                 Button {
                     player.fastForward()
@@ -381,12 +397,15 @@ struct RsvpView: View {
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [])
                 .help("Fast-forward 5 words")
+                .accessibilityLabel("Fast-forward 5 words")
             }
             .buttonStyle(.borderless)
             .font(.system(size: 20))
 
             VStack(spacing: 4) {
                 Text("\(player.wpm) WPM").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                    // Redundant with the slider's own value below.
+                    .accessibilityHidden(true)
                 Slider(
                     value: Binding(
                         get: { Double(player.wpm) },
@@ -397,6 +416,7 @@ struct RsvpView: View {
                 )
                 .frame(width: 260)
                 .accessibilityLabel("Reading speed")
+                .accessibilityValue("\(player.wpm) words per minute")
             }
 
             Spacer()

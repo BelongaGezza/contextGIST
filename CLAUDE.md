@@ -25,7 +25,9 @@ distribution), [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md)
 core, Chrome, Windows 11, and Linux), and
 [`docs/MACOS_GUIDE.md`](./docs/MACOS_GUIDE.md) (install/use/remove for the
 current macOS build — there's no signed release yet, so this is the only
-way to run it today).
+way to run it today). [`docs/PRIVACY.md`](./docs/PRIVACY.md) and
+[`docs/THIRD-PARTY.md`](./docs/THIRD-PARTY.md) are user-facing
+disclosures, so keep them true when the code changes.
 
 ## Relationship to GIST (~/develop/reader)
 
@@ -38,6 +40,10 @@ way to run it today).
 - Pacing/tokenization logic is never edited in this repo — if it needs to
   change, change it upstream in `~/develop/reader` and this workspace picks
   it up on the next build.
+- `~/develop/reader` may be on any branch, not necessarily GitHub `main`.
+  The last upstream commit this repo was reviewed and tested against is
+  recorded in `docs/ARCHITECTURE.md` ("Upstream baseline"). When upstream
+  moves, re-review it using that section's procedure and add a row.
 - `rust-toolchain.toml` here is pinned independently of GIST's own pin
   (1.88.0) — contextGIST's uniffi version needs a newer rustc than that to
   resolve its transitive deps, and the path-dependency crates have no MSRV
@@ -54,6 +60,10 @@ cargo test -p contextgist-ffi tokenize_splits_words_and_paragraphs   # single te
 ./tools/gen-bindings.sh                   # builds contextgist-ffi + regenerates apps/macos/Generated/
 cd apps/macos && xcodegen generate        # generates contextGIST.xcodeproj (gitignored, never committed)
 xcodebuild -scheme contextGIST build
+
+# Release packaging / disclosures
+./tools/gen-third-party.sh                # regenerate docs/THIRD-PARTY.md + bundled notices after any Cargo.lock change
+./tools/build-dmg.sh <path/to/contextGIST.app> <out.dmg>   # unsigned, host-arch-only DMG
 ```
 
 `xcodegen` and Xcode are required for the macOS app; `brew install xcodegen`
@@ -114,3 +124,11 @@ A full security review has since been done — see
 `docs/DEVELOPMENT_PLAN.md`. No Windows/Linux/browser-extension integration
 exists yet; macOS Services (+ the not-yet-started iOS Share Extension) is
 the only integration point today.
+
+2026-09-30: reviewed upstream GIST changes since the scaffold (baseline now
+reader `24f4138`). Adopted: GIST's `elapsedMs` rounding fix in
+`PacingEngine`, a VoiceOver/contrast pass on the popup,
+`tools/build-dmg.sh`, licence notices (`tools/gen-third-party.sh`,
+bundled as `Resources/ThirdPartyNotices.txt`), and `docs/PRIVACY.md`.
+Deliberately not ported: GIST's punctuation-pause toggle, scrub slider,
+session stats, and rotary dial (see `docs/ARCHITECTURE.md`).
