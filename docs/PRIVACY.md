@@ -21,7 +21,9 @@ its file path, or anything else from the app you selected text in.
 ## 2. What contextGIST stores
 
 **Nothing.** The selected text, and the word list made from it, exist only in
-memory for as long as the popup window is open. Closing the window drops the
+memory for as long as the popup window is open, and the app quits as soon
+as that window closes. contextGIST doesn't explicitly wipe that memory; see
+`docs/SECURITY_REVIEW.md` finding #2 for why. Closing the window drops the
 last reference to them (`PopupController.windowWillClose` →
 `AppServiceProvider`'s `popup = nil`). There is no library, history, cache,
 settings file, or `UserDefaults` use: no code in `apps/macos/Sources/` or

@@ -34,24 +34,54 @@ either.
 Every later phase either reuses this code directly (iOS/iPadOS) or reuses
 its *shape* (everyone else). Fix it once, here, before multiplying it.
 
-- [ ] Cap accepted selection length in `AppServiceProvider.readSelection`
-  (finding #1) with a clean user-facing error above the cap.
-- [ ] Move `tokenize(text:)`/`DisplayToken` construction off the main
-  thread, or show a loading state for large-but-under-cap input.
-- [ ] Add adversarial-input tests against `gist-parse-txt`/`gist-rsvp`
+- [x] Cap accepted selection length in `AppServiceProvider.readSelection`
+  (finding #1) with a clean user-facing error above the cap. 512 KiB
+  (`maxSelectionBytes`, ~85,000 words); above it an alert explains the limit.
+  Verified via the real Services path on 2026-09-30.
+- [x] Move `tokenize(text:)`/`DisplayToken` construction off the main
+  thread, or show a loading state for large-but-under-cap input. Done:
+  `RsvpPlayer` tokenizes in a detached task and shows a spinner until
+  ready, then auto-plays. Word counts for the progress readout are
+  precomputed, so each tick is O(1).
+- [x] Add adversarial-input tests against `gist-parse-txt`/`gist-rsvp`
   (long words, bidi/RTL text, zero-width joiners, degenerate whitespace) —
   a panic here is what would trigger finding #1's crash-report exposure.
-- [ ] Decide and document the memory-scrubbing stance (finding #2) — even
+  Done in `contextgist-ffi`'s tests (plus control characters, line-ending
+  styles, and a 5,000-case seeded pseudo-fuzz). No panics found. As a
+  second layer, the FFI exports now contain panics (`contain`) rather than
+  letting them trap in Swift.
+- [x] Decide and document the memory-scrubbing stance (finding #2) — even
   if the decision is "encrypted swap is enough, we're not doing explicit
   zeroing," write down *why* so it's a decision, not an oversight.
+  Decision recorded under finding #2: no explicit zeroing.
+- [x] Make sure the app process exits when it has nothing open (finding #2's
+  decision relies on it). A 2026-09-30 hands-on check found the app still
+  running after the popup was closed. That couldn't be reproduced, but a
+  real gap turned up: a launch that never opened a popup (empty selection,
+  "too long" alert, plain launch) never exited. Exit is now explicit
+  (`AppServiceProvider.quitIfIdle()`, plus a 10 s idle timeout after
+  launch) rather than relying only on AppKit's
+  `applicationShouldTerminateAfterLastWindowClosed`. Verified with Debug-only
+  test hooks (`CONTEXTGIST_TEST_AUTOCLOSE_AFTER` etc., see
+  `PopupController.showWindow`) across five scenarios, including a
+  Services-launched instance. Confirmed hands-on on the Release build
+  (2026-09-30): after closing the popup, `pgrep -lf contextGIST` printed
+  nothing.
 - [ ] Prove out real Developer ID signing + Hardened Runtime + notarization
   on a Release build (finding #3) — do this before, not during, the first
-  time this leaves the current machine.
-- [ ] Mirror `~/develop/reader/deny.toml`'s license/advisory policy in this
-  workspace's `Cargo.toml` (finding #4).
+  time this leaves the current machine. **Blocked on an Apple Developer
+  account** (no signing identity on the dev machine).
+  `tools/release-sign.sh` is ready and its ad-hoc path is tested.
+- [x] Mirror `~/develop/reader/deny.toml`'s license/advisory policy in this
+  workspace's `Cargo.toml` (finding #4). Done as a root `deny.toml` (the
+  standard cargo-deny location, not `Cargo.toml`). `cargo deny --exclude-dev
+  check` passes all four checks with cargo-deny 0.20.2. The local 0.18.3
+  can't parse the current advisory DB; `cargo install cargo-deny --locked`
+  fixes that.
 - [ ] Install `cargo-audit` (or `cargo-deny`) in CI once CI exists — no CI
   exists yet, so there's currently no automated dependency-vulnerability
-  gate at all.
+  gate at all. **Blocked: no remote or CI.** When it exists, run `cargo deny
+  --exclude-dev check` (policy already in `deny.toml`).
 
 Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
 2026-09-30; see `docs/ARCHITECTURE.md` "Upstream baseline"):
@@ -65,9 +95,13 @@ Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
   `b20908d`. GIST's `release-macos.yml` workflow wasn't ported because this
   repo has no GitHub remote or CI yet; port it once it does. Signing and
   notarization remain finding #3 above.
-- [ ] Universal (arm64 + x86_64) build before shipping a DMG to anyone else:
-  `gen-bindings.sh` and `ONLY_ACTIVE_ARCH` currently produce a host-arch-only
-  app.
+- [x] Universal (arm64 + x86_64) build before shipping a DMG to anyone else.
+  Release builds are now universal (`gen-bindings.sh` lipo's both slices;
+  `project.yml` sets per-configuration library paths). Both slices link the
+  Rust core; the x86_64 slice hasn't been *run* (no Intel Mac or Rosetta on
+  the dev machine).
+- [x] App icon: `AppIcon.icon`, generated from GIST's macOS artwork by
+  `tools/gen-app-icon.sh` (see `docs/ARCHITECTURE.md` "App icon").
 - [x] VoiceOver pass on the popup (labels, one-element word display) and a
   contrast check on the ORP letter (mirrors reader `0e44caa`'s approach).
   Hands-on VoiceOver verification is still needed.
@@ -88,8 +122,8 @@ not just tidy.
 
 - [ ] Add an iOS/iPadOS target + a Share Extension target to `project.yml`
   (same XcodeGen tool, new platform entries).
-  `gen-bindings.sh` already builds `contextgist-ffi` for "the host arch"
-  only — extend it (or add a sibling script) to build for iOS device +
+  `gen-bindings.sh` builds `contextgist-ffi` for macOS only (host arch for
+  Debug, universal for Release) — extend it (or add a sibling script) to build for iOS device +
   simulator slices via `cargo build --target aarch64-apple-ios` etc., and
   decide whether to introduce the `.xcframework` step GIST's own repo uses
   (contextGIST deliberately skipped it for macOS-only — that reasoning no

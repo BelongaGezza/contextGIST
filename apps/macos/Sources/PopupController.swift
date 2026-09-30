@@ -33,6 +33,21 @@ final class PopupController: NSObject, NSWindowDelegate {
 
     func showWindow() {
         window.makeKeyAndOrderFront(nil)
+        #if DEBUG
+        // Test hook: close the popup the way the close button does, after N
+        // seconds, so "does the app exit when the popup closes" can be
+        // checked without UI automation. Debug builds only. Launch with
+        // `open -a contextGIST.app --env CONTEXTGIST_TEST_AUTOCLOSE_AFTER=3`;
+        // add `--env CONTEXTGIST_TEST_AUTOCLOSE_VIA=escape` to use the Escape
+        // key's path (`window.close()`) instead of the close button's.
+        let env = ProcessInfo.processInfo.environment
+        if let delay = env["CONTEXTGIST_TEST_AUTOCLOSE_AFTER"].flatMap(Double.init) {
+            let viaEscape = env["CONTEXTGIST_TEST_AUTOCLOSE_VIA"] == "escape"
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak window] in
+                if viaEscape { window?.close() } else { window?.performClose(nil) }
+            }
+        }
+        #endif
     }
 
     func windowWillClose(_ notification: Notification) {

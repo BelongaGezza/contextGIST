@@ -132,7 +132,15 @@ drift from the Rust rule.
 - **`PopupController.swift`** — owns the one `NSWindow` for a reading
   session. `windowWillClose` drops its only reference back to
   `AppServiceProvider`, which is what actually discards the text — nothing
-  writes it anywhere.
+  writes it anywhere. `AppServiceProvider.quitIfIdle()` then quits the app,
+  as it does whenever there's no popup (alert dismissed, empty selection, or
+  10 s after a launch that never got text), so no reading outlives its
+  window. Debug builds have test hooks that close the popup and alert on a
+  timer (`CONTEXTGIST_TEST_AUTOCLOSE_AFTER`, `..._VIA=escape`,
+  `CONTEXTGIST_TEST_AUTOCLOSE_ALERT_AFTER`), so these exit paths can be
+  checked without UI automation. Pass them with `open --env`, or with
+  `launchctl setenv` for a Services-launched instance, and unset them
+  afterwards.
 - **`RsvpView.swift`** — the SwiftUI view, its `RsvpPlayer`
   (`ObservableObject` driving playback) and `PacingEngine` (see above), and
   the ORP-centered word display (`WordDisplay`, using the standard

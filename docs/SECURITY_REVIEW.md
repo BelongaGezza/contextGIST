@@ -92,6 +92,35 @@ mitigation (`mlock`/explicit zeroing) unless the product wants to make a
 stronger claim than "we don't persist it ourselves" — flagging as a
 conscious decision point, not a bug.
 
+**Decision (2026-09-30): no explicit zeroing.** contextGIST's claim stays
+"we never write it anywhere," not "we wipe it from memory." Reasons:
+
+- **Copies exist outside contextGIST's control.** The source app, the
+  pasteboard server holding the Services pasteboard, AppKit/SwiftUI text
+  layout and rendering caches, and the accessibility tree (VoiceOver labels
+  carry the current word) all hold the text or pieces of it. Zeroing only
+  contextGIST's own buffers would not make "wiped from memory" true.
+- **No sound way to zero in Swift.** `String` is copy-on-write with no
+  zeroing API, and bridging from the pasteboard's `NSString` makes more
+  copies. On the Rust side, `zeroize` wouldn't cover the copies uniffi makes
+  crossing the FFI boundary in both directions.
+- **Process exit is the effective wipe.** The app quits as soon as it has
+  no popup open (`AppServiceProvider.quitIfIdle()`, called on popup close,
+  alert dismissal and empty selections, plus a 10 s idle timeout after
+  launch), and the kernel zero-fills freed pages before handing them to
+  another process. So the window of exposure is the popup's lifetime. Exit
+  used to rely only on AppKit's
+  `applicationShouldTerminateAfterLastWindowClosed`; a hands-on check once
+  saw the app outlive its popup, which couldn't be reproduced, so exit was
+  made explicit, tested across five scenarios, and confirmed hands-on on a
+  Release build (Phase 0).
+- **Swap is always encrypted on current macOS**, so paged-out text isn't
+  readable at rest.
+
+Revisit if the product ever wants to claim more than that, or if a platform
+without these properties (e.g. one without process-per-invocation) makes
+the window of exposure much longer.
+
 ### 3. [Low] Distribution signing story is unproven
 
 The build log shows `note: Disabling hardened runtime with ad-hoc

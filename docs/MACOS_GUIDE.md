@@ -79,8 +79,8 @@ Run from the repo root (`~/develop/contextGIST`) unless noted otherwise.
    open /Applications/contextGIST.app
    ```
    Nothing visible happens — the app is `LSUIElement` (no Dock icon, no
-   window) and quits itself a moment later since it has no open window.
-   That's expected.
+   window) and quits itself about 10 seconds later, since it wasn't given
+   any text. That's expected.
 
    **c. Verify the registration took**, rather than guessing from the menu:
    ```bash
