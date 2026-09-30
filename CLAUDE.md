@@ -41,9 +41,16 @@ disclosures, so keep them true when the code changes.
   change, change it upstream in `~/develop/reader` and this workspace picks
   it up on the next build.
 - `~/develop/reader` may be on any branch, not necessarily GitHub `main`.
-  The last upstream commit this repo was reviewed and tested against is
-  recorded in `docs/ARCHITECTURE.md` ("Upstream baseline"). When upstream
-  moves, re-review it using that section's procedure and add a row.
+  `UPSTREAM_BASELINE` records the last GIST commit this repo was reviewed
+  and tested against.
+- **Upstream review is part of the development cycle.** At the start of a
+  work session, and whenever the build prints `warning: GIST ... changed
+  ... since the last upstream review`, run `tools/upstream-review.sh`.
+  For each item, decide adopt, port or skip, following
+  `docs/ARCHITECTURE.md` "Upstream baseline". Tell the user what's
+  applicable before making non-trivial changes. Once handled, run
+  `tools/upstream-review.sh --record "<summary>"` and commit. Releases are
+  blocked (`release-sign.sh`) until this is done.
 - `rust-toolchain.toml` here is pinned independently of GIST's own pin
   (1.88.0) — contextGIST's uniffi version needs a newer rustc than that to
   resolve its transitive deps, and the path-dependency crates have no MSRV
@@ -67,6 +74,10 @@ xcodebuild -scheme contextGIST build
 ./tools/release-sign.sh <path/to/contextGIST.app> <out.dmg> # sign + DMG + notarize (SIGN_IDENTITY, APPLE_* env; ad-hoc if unset)
 cargo deny --exclude-dev check            # licence/advisory/source policy (deny.toml); advisories need cargo-deny >= 0.20
 ./tools/gen-app-icon.sh [--refresh-source]   # regenerate apps/macos/AppIcon.icon from GIST's icon artwork
+
+# Upstream (GIST) review
+./tools/upstream-review.sh [--fetch]      # what changed in ~/develop/reader since UPSTREAM_BASELINE, grouped by impact
+./tools/upstream-review.sh --record "..." # after reviewing: run tests, move the baseline, log it in ARCHITECTURE.md
 ```
 
 `xcodegen` and Xcode are required for the macOS app; `brew install xcodegen`
