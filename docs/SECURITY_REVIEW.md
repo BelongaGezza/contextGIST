@@ -104,6 +104,15 @@ confirm Hardened Runtime is actually active (not silently downgraded like
 the ad-hoc debug build), and notarize — otherwise Gatekeeper blocks or
 scares off every other user.
 
+**Update 2026-09-30: tooling ready, blocked on credentials.** Release builds
+already carry the Hardened Runtime flag even when signed ad-hoc (`codesign
+-dv` shows `flags=0x10002(adhoc,runtime)`; only Debug downgrades it).
+`tools/release-sign.sh` signs with Hardened Runtime and the sandbox
+entitlements, verifies both, builds and signs the DMG, then notarizes,
+staples and runs a Gatekeeper check. The ad-hoc path is tested. The
+Developer ID + notarization path has never run, because the dev machine has
+no signing identity. It needs an Apple Developer Program membership.
+
 ### 4. [Low] Supply-chain: unpinned path dependency
 
 `crates/contextgist-ffi/Cargo.toml` depends on `gist-model`/`gist-parse-txt`/

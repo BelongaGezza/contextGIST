@@ -114,10 +114,13 @@ To hand the build to another Mac you control, package the Release app:
 ./tools/build-dmg.sh /Applications/contextGIST.app ~/Desktop/contextGIST.dmg
 ```
 The DMG holds the app, an `Applications` shortcut, and
-`Third-Party Notices.txt`. It is **unsigned and host-arch only** (an Apple
-silicon build won't run on an Intel Mac). Gatekeeper will block it on
-other machines until Developer ID signing and notarization exist
-(`docs/SECURITY_REVIEW.md` finding #3).
+`Third-Party Notices.txt`. Release builds are universal (Apple silicon and
+Intel). The DMG is **not notarized**, so Gatekeeper will block it on other
+machines until Developer ID signing and notarization exist
+(`docs/SECURITY_REVIEW.md` finding #3). Once they do, use
+`tools/release-sign.sh` instead: it signs with Hardened Runtime, builds the
+DMG, notarizes and staples. See that script's header for the credentials it
+needs.
 
 ## Use
 

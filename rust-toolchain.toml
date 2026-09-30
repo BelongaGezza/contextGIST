@@ -5,3 +5,7 @@
 # rustc than 1.88 to resolve its transitive deps, so this workspace pins
 # its own, separately-updated toolchain.
 channel = "1.97.1" # matches the "stable" toolchain already installed on this machine
+# Release builds are universal (arm64 + x86_64): tools/gen-bindings.sh
+# builds both slices and lipo's them together. Listing the targets here
+# makes rustup install them automatically.
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]

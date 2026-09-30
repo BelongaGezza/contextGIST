@@ -13,9 +13,9 @@
 # without opening the bundle (contextGIST has no About/Settings screen to
 # show them from — see docs/THIRD-PARTY.md).
 #
-# Note: the .app is host-arch only today (ONLY_ACTIVE_ARCH in
-# apps/macos/project.yml), so a DMG built on Apple silicon won't run on an
-# Intel Mac and vice versa.
+# Release builds are universal (arm64 + x86_64). A Debug .app is host-arch
+# only, so package Release builds. For a signed build, use
+# tools/release-sign.sh, which signs first and then calls this script.
 #
 # Usage: tools/build-dmg.sh <path-to.app> <output.dmg>
 set -euo pipefail
