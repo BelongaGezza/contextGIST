@@ -62,6 +62,22 @@ RTL/bidi text, zero-width joiners, degenerate whitespace) against
 build, since a panic is exactly what would trigger the crash-report
 exposure above.
 
+**Update 2026-09-30: mitigated.**
+- Selections over 512 KiB are rejected with an alert
+  (`AppServiceProvider.maxSelectionBytes`). The check uses the O(1)
+  `NSString.length` first, so a huge string is rejected without being walked.
+- Tokenizing runs off the main thread, with a loading state.
+- `contextgist-ffi`'s exports wrap their work in `catch_unwind` (`contain`),
+  so a Rust panic yields no tokens instead of a Swift trap and crash report.
+  They also install a silent panic hook, because some std panic messages
+  quote the string involved.
+- New adversarial-input tests found no panics in the upstream tokenizer or
+  ORP code.
+
+Residual: a crash for any *other* reason (e.g. a Swift bug, or OOM near the
+cap on a very constrained machine) could still produce a report while text
+is in memory.
+
 ### 2. [Low] No explicit memory scrubbing of sensitive text after close
 
 Swift `String`/Rust `String` heap allocations aren't zeroed on

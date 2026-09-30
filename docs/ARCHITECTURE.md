@@ -74,6 +74,15 @@ persistence:
 - `default_config() -> FfiRsvpConfig` — `gist_rsvp::Config::default()`.
 - `orp_index(word: String) -> u32` — `gist_rsvp::orp_index`.
 
+`tokenize` and `orp_index` wrap their work in `contain`, which turns a panic
+into a neutral result (no tokens / offset 0) and installs a silent panic
+hook once. For infallible exports, uniffi's generated Swift uses `try!`, so
+an uncaught panic would otherwise trap and write a crash report while the
+selection is in memory (`docs/SECURITY_REVIEW.md` finding #1). The tests
+include adversarial inputs (bidi, ZWJ, huge words, degenerate whitespace, a
+seeded pseudo-fuzz) run against the upstream crates *without* `contain`, so
+a real upstream panic still fails a test instead of being hidden.
+
 ## Why playback isn't driven through FFI per tick
 
 `gist-rsvp`'s own doc comment says it's meant to be driven "from

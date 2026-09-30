@@ -10,6 +10,7 @@ serde_json = "1"
 uniffi     = "0.32"
 
 [profile.release]
-# Must stay "unwind" — ffi_catch-style panic containment in contextgist-ffi
-# relies on catch_unwind, which is a no-op under panic = "abort".
+# Must stay "unwind": contextgist-ffi's `contain` (panic containment at the
+# FFI boundary) relies on catch_unwind, which does nothing under
+# panic = "abort".
 panic = "unwind"

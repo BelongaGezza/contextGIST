@@ -99,8 +99,9 @@ new source file (XcodeGen needs to re-scan `Sources/`).
 
 ## Current state
 
-Scaffolded 2026-09-25. `cargo test --workspace` passes (4 tests in
-`contextgist-ffi`). `./tools/gen-bindings.sh` + `xcodegen generate` +
+Scaffolded 2026-09-25. `cargo test --workspace` passes (13 tests in
+`contextgist-ffi`, including adversarial-input tests against the upstream
+tokenizer/ORP code). `./tools/gen-bindings.sh` + `xcodegen generate` +
 `xcodebuild -scheme contextGIST build` all succeed cleanly. The built app's
 `NSServices` entry ("Speed Read with contextGIST") registers with Launch
 Services and shows up in the live pasteboard-services registry
