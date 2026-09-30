@@ -282,18 +282,18 @@ mod tests {
 
     #[test]
     fn line_ending_styles() {
-        // Pins current upstream behavior, which is a known bug:
-        // https://github.com/BelongaGezza/gist/issues/76. Paragraphs only
-        // split on a literal "\n\n", so CRLF, bare-CR (e.g. Word), U+2029
-        // and whitespace-only blank lines lose their paragraph pauses.
-        // Words are unaffected. When upstream fixes #76, this test fails:
-        // flip the 0s to 1s and pick up the fix.
+        // Every way of writing a blank line gives a paragraph break: LF,
+        // CRLF (Windows), bare CR (e.g. Word), U+2029 PARAGRAPH SEPARATOR,
+        // and whitespace-only "blank" lines. Before GIST 695fba1 only a
+        // literal "\n\n" did, so the others lost their paragraph pauses
+        // (https://github.com/BelongaGezza/gist/issues/76, filed from
+        // here). This test pinned the bug until upstream fixed it.
         for (text, breaks) in [
             ("one two\n\nthree", 1),
-            ("one two\r\n\r\nthree", 0),
-            ("one two\r\rthree", 0),
-            ("one two\u{2029}three", 0),
-            ("one two\n \nthree", 0),
+            ("one two\r\n\r\nthree", 1),
+            ("one two\r\rthree", 1),
+            ("one two\u{2029}three", 1),
+            ("one two\n \nthree", 1),
         ] {
             let tokens = tokenize_checked(text);
             assert_eq!(words(&tokens), vec!["one", "two", "three"], "for {text:?}");
