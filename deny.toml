@@ -1,0 +1,60 @@
+# cargo-deny policy for contextGIST. Mirrors ~/develop/reader/deny.toml
+# (docs/SECURITY_REVIEW.md finding #4), trimmed to what this workspace's
+# much smaller graph needs. Run from the repo root:
+#
+#   cargo deny --exclude-dev check
+#
+# (`--exclude-dev` so test-only crates don't count against the policy.)
+
+[graph]
+# contextGIST is macOS-only today; checking other targets' platform crates
+# would only add noise. Widen this when Phase 1+ targets land.
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+
+[licenses]
+# Same allow-list as GIST, minus what contextGIST's graph doesn't use
+# (CDLA-Permissive-2.0 is only for GIST's HTTPS stack; BSD-2-Clause, ISC and
+# Zlib aren't reached). Anything not listed is rejected, which keeps
+# GPL/AGPL/LGPL out. Add a licence here only with a comment saying why.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",   # encoding_rs (via gist-parse-txt)
+    "Unicode-3.0",    # unicode-ident (via uniffi's proc macros)
+    "Unlicense",      # memchr, dual-licensed "Unlicense OR MIT"
+    # File-level copyleft only: uniffi, the FFI layer. Used unmodified; see
+    # docs/THIRD-PARTY.md for the source-availability obligation.
+    "MPL-2.0",
+]
+# contextGIST's own crate and GIST's gist-* crates are MIT but unpublished
+# path crates; they're first-party, not checked against the list.
+private = { ignore = true }
+
+[advisories]
+version = 2
+ignore = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Path deps into ~/develop/reader have no `version =`, which Cargo treats as
+# "*". Allow that for path deps only; a real `foo = "*"` is still denied.
+allow-wildcard-paths = true
+deny = [
+    # contextGIST must never gain networking or TLS. The App Sandbox
+    # entitlements already forbid network access at runtime; this keeps
+    # the code out of the binary in the first place.
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "rustls" },
+    { name = "ureq" },
+    { name = "reqwest" },
+    { name = "hyper" },
+    { name = "tokio" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
