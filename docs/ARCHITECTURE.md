@@ -42,18 +42,54 @@ is moved or absent.
 
 Because the dependency is a path, contextGIST builds against whatever
 branch/commit `~/develop/reader` happens to have checked out — not
-necessarily GitHub `main`. The last upstream state contextGIST was reviewed
-and tested against:
+necessarily GitHub `main`. contextGIST exists to reuse GIST, so reviewing
+upstream changes is part of the normal development cycle, not a one-off.
+
+**How it's enforced.** `UPSTREAM_BASELINE` records the last GIST commit
+contextGIST was reviewed and tested against. `tools/upstream-review.sh`
+compares the current `~/develop/reader` checkout (including uncommitted
+edits) with it:
+
+- **Every build:** `gen-bindings.sh` runs `upstream-review.sh --check`,
+  which prints an Xcode build warning when GIST code that contextGIST uses
+  has changed since the baseline. The build doesn't fail.
+- **Every release:** `release-sign.sh` runs `--check --strict` and refuses to
+  sign until the review is done (`ALLOW_UNREVIEWED_UPSTREAM=1` overrides,
+  with a warning).
+- **Start of a work session:** run `tools/upstream-review.sh` (add `--fetch`
+  to see GitHub too), so work starts from a reviewed upstream.
+
+**Doing a review.** `tools/upstream-review.sh` groups changes by how they
+can reach contextGIST. For each item, decide *adopt*, *port* or *skip*:
+
+1. **Shared crates** (`gist-model`, `gist-parse-txt`, `gist-rsvp`): compiled
+   in, so their changes arrive on the next build with no action. Check the
+   behaviour change is wanted, and update any contextGIST test that pins
+   upstream behaviour (e.g. `line_ending_styles`).
+2. **GIST's Swift pacing/ORP code** (`apps/apple/macOS/RsvpView.swift`):
+   `PacingEngine` is a hand port, so diff it and port pacing fixes. UI-only
+   features are a product decision (see the "Not ported" list above).
+3. **Icon artwork** (`assets/`): `tools/gen-app-icon.sh --refresh-source`.
+4. **Security/dependency policy** (`deny.toml`, GIST's security reviews):
+   mirror what applies to contextGIST's much smaller surface.
+5. **Everything else**: usually GIST-only (library, storage, Windows), but
+   skim for fixes to ideas contextGIST shares.
+6. **GIST issues mentioning contextGIST**: a closed one may need a matching
+   change here.
+
+Then record it with `tools/upstream-review.sh --record "<what was adopted,
+ported or skipped>"`. That refuses a GIST checkout with uncommitted changes
+in watched paths, runs `cargo test --workspace` against it, and on success
+updates `UPSTREAM_BASELINE` and adds a row below. Commit both, together with
+any adopted changes.
+
+History of reviews:
 
 | Date | `~/develop/reader` commit | Branch | Notes |
 |---|---|---|---|
 | 2026-09-30 | `24f4138` | `integration/m4-2026-09-28` (24 commits ahead of `origin/main` `75700c6`) | Upstream changes since the 2026-09-25 scaffold (`5ab99ab`) reviewed. Path-dep crates changed only additively (`gist-model::ParseError`, tests, a `gist-parse-txt` benchmark), with no pacing or tokenization change. Ported the `elapsedMs` rounding fix from GIST's `RsvpWallClockEngine` (reader `6717ca5`). |
 
-When upstream moves, re-review `git -C ~/develop/reader diff <last
-baseline>..HEAD -- crates/gist-model crates/gist-parse-txt crates/gist-rsvp
-apps/apple/macOS/RsvpView.swift` (the last path is where GIST's own Swift
-pacing port lives, and it's the one to diff against `PacingEngine`), then
-add a row here. See also `docs/SECURITY_REVIEW.md` finding #4.
+See also `docs/SECURITY_REVIEW.md` finding #4.
 
 Everything else in GIST — `gist-store` (SQLite/FTS5/encryption),
 `gist-core` (import pipeline), `gist-parse-epub`/`gist-parse-docx`/

@@ -1,0 +1,6 @@
+# The last ~/develop/reader (GIST) commit contextGIST was reviewed and
+# tested against. Written by `tools/upstream-review.sh --record`; don't edit
+# by hand. History and notes: docs/ARCHITECTURE.md "Upstream baseline".
+commit=24f413813549462b8b524af07fadb87b3e3be68b
+branch=integration/m4-2026-09-28
+reviewed=2026-09-30

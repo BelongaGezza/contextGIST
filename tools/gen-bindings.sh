@@ -22,6 +22,11 @@ GENERATED_DIR="$REPO_ROOT/apps/macos/Generated"
 
 cd "$REPO_ROOT"
 
+# Upstream review nudge: prints an Xcode build warning when GIST code that
+# contextGIST uses has changed since the last recorded review
+# (UPSTREAM_BASELINE). Never fails the build.
+"$SCRIPT_DIR/upstream-review.sh" --check || true
+
 if [ "${CONFIGURATION:-Debug}" = "Release" ]; then
     TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
     UNIVERSAL_DIR="$REPO_ROOT/target/universal/release"

@@ -40,6 +40,18 @@ for arch in arm64 x86_64; do
     fi
 done
 
+# Don't ship on top of upstream GIST changes nobody has reviewed: they're
+# compiled in (shared crates) or may need porting (see
+# tools/upstream-review.sh). ALLOW_UNREVIEWED_UPSTREAM=1 overrides, loudly.
+if ! "$SCRIPT_DIR/upstream-review.sh" --check --strict; then
+    if [ "${ALLOW_UNREVIEWED_UPSTREAM:-0}" = 1 ]; then
+        echo "warning: releasing with unreviewed upstream changes (ALLOW_UNREVIEWED_UPSTREAM=1)" >&2
+    else
+        echo "error: review upstream first (tools/upstream-review.sh), or set ALLOW_UNREVIEWED_UPSTREAM=1" >&2
+        exit 1
+    fi
+fi
+
 if [ "$IDENTITY" = "-" ]; then
     echo "warning: SIGN_IDENTITY not set — signing ad-hoc. The result will NOT pass Gatekeeper on other Macs." >&2
     TIMESTAMP="--timestamp=none"

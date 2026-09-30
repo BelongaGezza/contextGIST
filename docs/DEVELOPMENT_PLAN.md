@@ -264,12 +264,19 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
   source), memory-safe core. Treat any platform where one of these can't be
   matched (the Windows clipboard fallback in Phase 4 is the one already
   identified) as requiring explicit disclosure, not silent scope creep.
-- [ ] **Re-review upstream GIST whenever `~/develop/reader` moves**:
-  diff the path-dependency crates and GIST's Swift pacing port since the
-  last recorded baseline, then add a row to `docs/ARCHITECTURE.md`'s
-  "Upstream baseline" table. GIST's own 2026-09-29 review (its finding F30)
-  found that reviews done only on explicit request let ~4,700 lines land
-  unreviewed. Don't repeat that here.
+- [x] **Upstream review built into the development cycle** (2026-09-30):
+  `tools/upstream-review.sh` reports GIST changes since `UPSTREAM_BASELINE`,
+  grouped by how they reach contextGIST. Every build warns when watched
+  GIST code has changed; `release-sign.sh` refuses to sign until it's been
+  reviewed and recorded (`--record`, which also runs the tests). Procedure:
+  `docs/ARCHITECTURE.md` "Upstream baseline". Motivation: GIST's own
+  2026-09-29 review (its finding F30) found that reviews done only on
+  explicit request let ~4,700 lines land unreviewed. Don't repeat that
+  here.
+- [ ] **Ongoing:** when the build shows the upstream warning, or at the
+  start of a work session, run the review, act on it, and `--record` it.
+  When Phase 1+ platforms or CI exist, run `upstream-review.sh --check
+  --strict` in CI too.
 - [ ] Re-run a security review pass (informal is fine) at the end of each
   phase before that platform ships — this doc's Phase 0 review was cheap
   precisely because the codebase was still small; don't let five platforms'
