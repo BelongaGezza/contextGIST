@@ -86,7 +86,9 @@ new source file (XcodeGen needs to re-scan `Sources/`).
   `AppServiceProvider.readSelection(_:userData:error:)` is the OS entry
   point (wired via `NSServices` in `Info.plist`); it owns nothing beyond
   the current `PopupController`, and dropping that reference on window
-  close is what discards the reading session. `RsvpView.swift` has the
+  close is what discards the reading session. It rejects selections over
+  `maxSelectionBytes` (512 KiB) with an alert. `RsvpPlayer` tokenizes off
+  the main thread. `RsvpView.swift` has the
   SwiftUI view, the `RsvpPlayer`/`PacingEngine` playback logic (a Swift
   port of `gist-rsvp`'s pacing math — see architecture doc), and the
   ORP-centered word display.
