@@ -219,6 +219,13 @@ file, or cache beyond the sandbox container above.
   ```bash
   /System/Library/CoreServices/pbs -dump_pboard | grep -A5 contextGIST
   ```
+- **Build fails with "tools/gen-bindings.sh failed … refusing to link":**
+  the Rust build failed, and Xcode now stops rather than linking a stale
+  `libcontextgist_ffi.a`. Before 2026-09-30 it silently fell back to the
+  old library and still reported success. The cargo error is just above
+  that line in the build log. If it's `mis-aligned LINKEDIT string pool` on
+  a proc-macro `.dylib`, the build cache is corrupted: run `cargo clean
+  --release` (or `cargo clean` for Debug) and rebuild.
 - **"contextGIST: no text was selected"**: the source app didn't actually
   have a text selection, or doesn't implement the Services text-sending
   side of the protocol.
