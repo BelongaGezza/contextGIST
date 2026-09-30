@@ -50,9 +50,10 @@ Outside contextGIST's control, and standard for any Mac app:
   `~/Library/Logs/DiagnosticReports`, and depending on your **System
   Settings → Privacy & Security → Analytics** choices, may share them with
   Apple and/or the developer. This is the one known path by which selected
-  text could outlive the popup. It's tracked as `docs/SECURITY_REVIEW.md`
-  finding #1 (open), and it's why you should review a contextGIST crash
-  report before sharing it.
+  text could outlive the popup. contextGIST limits selections to 512 KB
+  and catches errors in its text-processing code rather than crashing on
+  them, but can't rule out every crash (`docs/SECURITY_REVIEW.md` finding
+  #1). Review a contextGIST crash report before sharing it.
 - The app you copied text from, and macOS's own Services machinery, handle
   the text before contextGIST receives it.
 
