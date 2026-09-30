@@ -107,6 +107,18 @@ Run from the repo root (`~/develop/contextGIST`) unless noted otherwise.
 You don't need to add it to Login Items — macOS launches it on demand
 whenever the Services item fires.
 
+### Optional: package a DMG
+
+To hand the build to another Mac you control, package the Release app:
+```bash
+./tools/build-dmg.sh /Applications/contextGIST.app ~/Desktop/contextGIST.dmg
+```
+The DMG holds the app, an `Applications` shortcut, and
+`Third-Party Notices.txt`. It is **unsigned and host-arch only** (an Apple
+silicon build won't run on an Intel Mac). Gatekeeper will block it on
+other machines until Developer ID signing and notarization exist
+(`docs/SECURITY_REVIEW.md` finding #3).
+
 ## Use
 
 1. Select text in any app that supports Services (TextEdit, Safari, Mail,
