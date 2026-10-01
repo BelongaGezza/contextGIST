@@ -93,3 +93,12 @@ jobs:
             -configuration Debug \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+      # Swift PacingEngine/ORP parity vs. golden values from the Rust core.
+      - name: xcodebuild test
+        working-directory: apps/macos
+        run: |
+          xcodebuild test \
+            -scheme contextGIST \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO

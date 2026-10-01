@@ -124,11 +124,17 @@ State at review: `main` == `origin/main`, tree clean, 13/13 Rust tests,
   `tools/upstream-review.sh --record "..."`; commit. **Blocks
   `release-sign.sh`** until recorded. Other review categories (Swift
   pacing/ORP, icon, security policy) had no changes.
-- [ ] **Swift-side test coverage.** There are no automated tests for
-  `PacingEngine`, `WordDisplay` or `OrpCalculator`; drift from GIST is only
-  caught by the manual upstream review. Add an XCTest target (pure-logic
-  tests for pacing math and ORP offset, including grapheme cases) and run
-  it in CI. This also feeds the golden-file parity work in Phase 2.
+- [x] **Swift-side test coverage** (done 2026-10-01). `contextGISTTests`
+  (`apps/macos/Tests/PacingParityTests.swift`, 11 tests) checks
+  `PacingEngine`, `DisplayToken` and `skipWords` against
+  `Tests/golden.json`, which `contextgist-ffi`'s
+  `golden_file_matches_gist_rsvp` generates from the real GIST crates
+  (tokenization, ORP offsets, per-token durations at 7 WPMs,
+  `token_at_elapsed`). The Rust test fails when the file is stale, so moving
+  the GIST pin forces `UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden`
+  and a Swift re-run. Runs in CI (`xcodebuild test`). Mutation-checked:
+  dropping the `elapsedMs` rounding or a clause rule fails the suite. Not
+  covered: rendering/`WordDisplay` layout, VoiceOver, the Services flow.
 - [ ] **Run `upstream-review.sh --check --strict` in CI** (currently only
   listed under "Ongoing"; CI already runs weekly, so it would surface new
   GIST commits without relying on a build warning).
