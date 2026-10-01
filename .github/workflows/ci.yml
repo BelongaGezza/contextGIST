@@ -73,6 +73,13 @@ jobs:
           curl -fsSL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
           unzip -q /tmp/xcodegen.zip -d /tmp
           sudo /tmp/xcodegen/install.sh
+      # uniffi no longer ships a standalone uniffi-bindgen on crates.io;
+      # contextgist-ffi builds its own (see the comment in tools/gen-bindings.sh).
+      - name: Install uniffi-bindgen
+        run: |
+          cargo install --locked --path crates/contextgist-ffi --bin uniffi-bindgen \
+            --features uniffi-bindgen-bin --root "$HOME/.cargo-uniffi-bindgen"
+          echo "$HOME/.cargo-uniffi-bindgen/bin" >> "$GITHUB_PATH"
       # Builds contextgist-ffi and generates apps/macos/Generated/*.swift.
       - run: ./tools/gen-bindings.sh
       - name: xcodegen generate
