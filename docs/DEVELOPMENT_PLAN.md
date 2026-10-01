@@ -80,7 +80,7 @@ its *shape* (everyone else). Fix it once, here, before multiplying it.
   fixes that.
 - [ ] Install `cargo-audit` (or `cargo-deny`) in CI once CI exists — no CI
   exists yet, so there's currently no automated dependency-vulnerability
-  gate at all. **Blocked: no remote or CI.** When it exists, run `cargo deny
+  gate at all. **Blocked: no CI yet** (the GitHub remote now exists; a CI job will also need to check out `BelongaGezza/gist` next to this repo for the path dependencies). When it exists, run `cargo deny
   --exclude-dev check` (policy already in `deny.toml`).
 
 Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
@@ -93,7 +93,7 @@ Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
 - [x] `docs/PRIVACY.md` (mirrors reader `17154ea`).
 - [x] `tools/build-dmg.sh`: unsigned DMG packaging, adapted from reader
   `b20908d`. GIST's `release-macos.yml` workflow wasn't ported because this
-  repo has no GitHub remote or CI yet; port it once it does. Signing and
+  repo has no CI yet (the GitHub remote exists now); port it once CI is set up. Signing and
   notarization remain finding #3 above.
 - [x] Universal (arm64 + x86_64) build before shipping a DMG to anyone else.
   Release builds are now universal (`gen-bindings.sh` lipo's both slices;
