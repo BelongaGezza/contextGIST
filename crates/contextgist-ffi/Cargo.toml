@@ -21,12 +21,12 @@ repository.workspace = true
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
-# Reused as-is from GIST (~/develop/reader) via path dependency — see
-# CLAUDE.md's "Relationship to GIST" section. No local fork/copy: pacing and
-# tokenization stay in sync with upstream automatically.
-gist-model     = { path = "../../../reader/crates/gist-model" }
-gist-parse-txt = { path = "../../../reader/crates/gist-parse-txt" }
-gist-rsvp      = { path = "../../../reader/crates/gist-rsvp" }
+# Reused as-is from GIST (github.com/BelongaGezza/gist) via a rev-pinned git
+# dependency declared in the workspace Cargo.toml — see CLAUDE.md's
+# "Relationship to GIST" section. No local fork/copy.
+gist-model     = { workspace = true }
+gist-parse-txt = { workspace = true }
+gist-rsvp      = { workspace = true }
 uniffi         = { workspace = true }
 
 [features]

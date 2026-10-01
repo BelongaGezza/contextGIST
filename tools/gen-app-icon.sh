@@ -12,23 +12,23 @@
 # (verified 2026-09-30: actool output is byte-identical with or without
 # one), so there isn't one.
 #
-# The source is GIST's ~/develop/reader/assets/a-macos-app-icon.png (same
-# author), copied here because it isn't committed upstream. To pick up a new
-# version of the artwork, run with --refresh-source, which re-copies it from
-# ~/develop/reader first. See docs/ARCHITECTURE.md "App icon".
+# The source is GIST's assets/a-macos-app-icon.png (same author), kept as a
+# committed copy here so the icon builds offline. To pick up a new version of
+# the artwork, run with --refresh-source, which downloads it from GIST's
+# main branch on GitHub first. See docs/ARCHITECTURE.md "App icon".
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SOURCE="$REPO_ROOT/apps/macos/IconSource/gist-macos-app-icon.png"
-UPSTREAM="$REPO_ROOT/../reader/assets/a-macos-app-icon.png"
+UPSTREAM="https://raw.githubusercontent.com/BelongaGezza/gist/main/assets/a-macos-app-icon.png"
 ICON_BUNDLE="$REPO_ROOT/apps/macos/AppIcon.icon"
 
 if [ "${1:-}" = "--refresh-source" ]; then
-    [ -f "$UPSTREAM" ] || { echo "error: $UPSTREAM not found" >&2; exit 1; }
     mkdir -p "$(dirname "$SOURCE")"
-    cp "$UPSTREAM" "$SOURCE"
-    echo "→ Copied source from $UPSTREAM"
+    curl -fsSL "$UPSTREAM" -o "$SOURCE.tmp" || { rm -f "$SOURCE.tmp"; echo "error: could not download $UPSTREAM" >&2; exit 1; }
+    mv "$SOURCE.tmp" "$SOURCE"
+    echo "→ Downloaded source from $UPSTREAM"
 fi
 [ -f "$SOURCE" ] || { echo "error: $SOURCE missing (run with --refresh-source)" >&2; exit 1; }
 

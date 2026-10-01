@@ -39,9 +39,9 @@ private struct DisplayToken {
 // ── Wall-clock-anchored pacing engine ───────────────────────────────────────
 //
 // Ported from gist_rsvp::RsvpSession's cursor/elapsed model
-// (~/develop/reader/crates/gist-rsvp/src/lib.rs), following the same
+// (crates/gist-rsvp/src/lib.rs in GIST), following the same
 // wall-clock-anchored approach GIST's own Swift shell uses (see
-// RsvpWallClockEngine in reader/apps/apple/macOS/RsvpView.swift) rather than
+// RsvpWallClockEngine in GIST apps/apple/macOS/RsvpView.swift) rather than
 // a per-tick FFI call: recomputes which token should be showing from actual
 // elapsed time on every tick, so a late/coalesced wake self-corrects instead
 // of drifting. Keep in sync with gist-rsvp if pacing rules change there.
@@ -92,7 +92,7 @@ private struct PacingEngine {
         // Round before truncating to UInt64: floating-point error (e.g. a
         // 0.400s interval materializing as 0.39999999999999997) would
         // otherwise truncate to 399ms. Mirrors the same fix in GIST's
-        // RsvpWallClockEngine.elapsedMs (reader commit 6717ca5).
+        // RsvpWallClockEngine.elapsedMs (GIST commit 6717ca5).
         UInt64((max(0, now.timeIntervalSince(start)) * 1000).rounded())
     }
 

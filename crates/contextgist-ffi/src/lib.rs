@@ -4,7 +4,7 @@
 //! the Swift shell fetches a token stream and a default pacing config once
 //! per popup, then drives playback itself (same wall-clock-anchored pattern
 //! as GIST's own `RsvpPlayer`, see apps/apple/macOS/RsvpView.swift in
-//! ~/develop/reader). This crate exists only to convert selected text into
+//! github.com/BelongaGezza/gist). This crate exists only to convert selected text into
 //! that token stream using GIST's real tokenizer, so pacing/pause rules
 //! never drift from upstream.
 
@@ -72,7 +72,7 @@ impl From<gist_model::Token> for FfiToken {
 /// Tokenize raw selected text exactly as GIST's plain-text importer would
 /// (blank-line-separated paragraphs, whitespace-split words — see
 /// `gist_parse_txt::parse` and `Document::build_token_stream` in
-/// ~/develop/reader). Never fails: a selection that somehow blows past
+/// github.com/BelongaGezza/gist). Never fails: a selection that somehow blows past
 /// `ParseLimits::default()` (256 MB) just yields no tokens rather than
 /// erroring the popup out — that ceiling is unreachable for a real text
 /// selection, so surfacing it as a user-facing error isn't worth the API

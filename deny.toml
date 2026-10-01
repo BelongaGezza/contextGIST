@@ -1,4 +1,4 @@
-# cargo-deny policy for contextGIST. Mirrors ~/develop/reader/deny.toml
+# cargo-deny policy for contextGIST. Mirrors GIST's deny.toml (github.com/BelongaGezza/gist)
 # (docs/SECURITY_REVIEW.md finding #4), trimmed to what this workspace's
 # much smaller graph needs. Run from the repo root:
 #
@@ -38,8 +38,9 @@ ignore = []
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# Path deps into ~/develop/reader have no `version =`, which Cargo treats as
-# "*". Allow that for path deps only; a real `foo = "*"` is still denied.
+# GIST's crates are git deps pinned by `rev` (no `version =`), which
+# cargo-deny sees as "*"; the pin is the real constraint. Wildcard path deps
+# are allowed for workspace members only; a registry `foo = "*"` is still denied.
 allow-wildcard-paths = true
 deny = [
     # contextGIST must never gain networking or TLS. The App Sandbox
@@ -57,4 +58,5 @@ deny = [
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+allow-git = ["https://github.com/BelongaGezza/gist"]
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

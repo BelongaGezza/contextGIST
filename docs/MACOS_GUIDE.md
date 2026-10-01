@@ -10,10 +10,9 @@ doc covers that, day-to-day use once it's installed, and a clean removal.
   don't have it.
 - A Rust toolchain matching `rust-toolchain.toml` (`rustup` will install it
   automatically on first build).
-- **`~/develop/reader` must exist on disk** — a clone of
-  [BelongaGezza/gist](https://github.com/BelongaGezza/gist) (`git clone git@github.com:BelongaGezza/gist.git ~/develop/reader`).
-  contextGIST builds against it via relative path dependencies (see `CLAUDE.md`'s "Relationship to GIST").
-  It doesn't need to be built itself, just present.
+- **Network access on the first build** — Cargo downloads GIST's crates
+  ([BelongaGezza/gist](https://github.com/BelongaGezza/gist)) as git dependencies pinned to a commit (see
+  `CLAUDE.md`'s "Relationship to GIST"). No local GIST checkout is needed.
 
 ## Install
 

@@ -23,10 +23,9 @@ current state.
 ## Building
 
 Requirements: Rust (version pinned in `rust-toolchain.toml`), Xcode, and
-[XcodeGen](https://github.com/yonaskolb/XcodeGen). A clone of the
-[GIST repo](https://github.com/BelongaGezza/gist) must sit next to this one at `~/develop/reader`
-(`git clone git@github.com:BelongaGezza/gist.git ../reader`), since `crates/contextgist-ffi` depends on its
-crates via relative path.
+[XcodeGen](https://github.com/yonaskolb/XcodeGen). No separate GIST checkout is needed: `crates/contextgist-ffi` depends on
+the [GIST repo](https://github.com/BelongaGezza/gist)'s crates as git dependencies pinned to a commit, which
+Cargo downloads on the first build.
 
 ```bash
 # Rust workspace

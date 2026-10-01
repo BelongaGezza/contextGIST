@@ -12,8 +12,8 @@
 # first-party. Mirrors GIST's docs/THIRD-PARTY.md methodology (reader commit
 # 401a972).
 #
-# Re-run after any Cargo.lock change, including upstream ~/develop/reader
-# changes that alter gist-model/gist-parse-txt/gist-rsvp's dependencies.
+# Re-run after any Cargo.lock change, including a GIST pin bump
+# (tools/upstream-review.sh --record) that alters gist-model/gist-parse-txt/gist-rsvp's dependencies.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,7 +56,7 @@ md = [
     "contextGIST itself is MIT-licensed (see `LICENSE`). Its Rust core",
     "(`crates/contextgist-ffi`, statically linked into `contextGIST.app`) reuses",
     "GIST's `gist-model`/`gist-parse-txt`/`gist-rsvp` crates (MIT, same author,",
-    "via path dependency) and depends on the external crates below. The macOS",
+    "via a git dependency pinned to a commit) and depends on the external crates below. The macOS",
     "app has no other third-party dependencies: no Swift packages, no CocoaPods,",
     "no vendored SDKs.",
     "",

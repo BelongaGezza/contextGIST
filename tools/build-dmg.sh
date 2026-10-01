@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packages a built contextGIST.app into a distributable .dmg.
 #
-# Adapted from GIST's tools/build-dmg.sh (reader commit b20908d). Like that
+# Adapted from GIST's tools/build-dmg.sh (GIST commit b20908d). Like that
 # script, it deliberately does NOT sign or notarise anything — it only
 # arranges files on disk and calls `hdiutil create`, so it works against an
 # ad-hoc/unsigned build with no Developer ID identity present (contextGIST

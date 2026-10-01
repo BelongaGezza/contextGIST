@@ -7,7 +7,7 @@ Its Rust core (statically linked into this app; there are no other
 third-party dependencies) depends on the following third-party Rust
 crates. The source code of each is available at the repository listed.
 
-Rust dependencies (55 crates)
+Rust dependencies (58 crates)
 -----------------------------
 
 anyhow 1.0.104 -- MIT OR Apache-2.0
@@ -51,6 +51,12 @@ fs-err 3.3.1 -- MIT OR Apache-2.0
 
 getrandom 0.4.3 -- MIT OR Apache-2.0
   https://github.com/rust-random/getrandom
+
+gist-model 0.1.0 -- MIT
+
+gist-parse-txt 0.1.0 -- MIT
+
+gist-rsvp 0.1.0 -- MIT
 
 hashbrown 0.17.1 -- MIT OR Apache-2.0
   https://github.com/rust-lang/hashbrown
