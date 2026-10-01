@@ -106,6 +106,40 @@ Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
   contrast check on the ORP letter (mirrors GIST `0e44caa`'s approach).
   Hands-on VoiceOver verification is still needed.
 
+### Added by the 2026-10-01 status review
+
+State at review: `main` == `origin/main`, tree clean, 13/13 Rust tests,
+`cargo deny` clean, CI green (the first CI run failed only because
+`uniffi-bindgen` wasn't installed; fixed in `44eb967`).
+
+- [x] **Adopt GIST `fb6946a`** (done 2026-10-01) (gist#79, fixes #78: `orp_index` counts
+  grapheme clusters, not chars — the ORP could land inside an emoji, flag
+  or accented letter, and disagreed with Swift's `OrpCalculator`). Baseline
+  and pin are at `9dc537c`; GIST `main` is `fb6946a`. Steps: check how
+  `orp_index` is used in `contextgist-ffi` and `RsvpView.swift`
+  (`WordDisplay` computes the reticle offset from character counts, so
+  confirm it counts the same units); add emoji/flag/combining-mark ORP
+  cases to the FFI tests (extend
+  `zero_width_joiners_emoji_and_combining_marks`); move the pin with
+  `tools/upstream-review.sh --record "..."`; commit. **Blocks
+  `release-sign.sh`** until recorded. Other review categories (Swift
+  pacing/ORP, icon, security policy) had no changes.
+- [ ] **Swift-side test coverage.** There are no automated tests for
+  `PacingEngine`, `WordDisplay` or `OrpCalculator`; drift from GIST is only
+  caught by the manual upstream review. Add an XCTest target (pure-logic
+  tests for pacing math and ORP offset, including grapheme cases) and run
+  it in CI. This also feeds the golden-file parity work in Phase 2.
+- [ ] **Run `upstream-review.sh --check --strict` in CI** (currently only
+  listed under "Ongoing"; CI already runs weekly, so it would surface new
+  GIST commits without relying on a build warning).
+- [ ] **Refresh `docs/SECURITY_REVIEW.md`** before any public distribution
+  (it is a 2026-09-25 point-in-time review; re-check its findings against
+  current code, including CI/workflow changes made since).
+- [x] **Regenerate `docs/THIRD-PARTY.md`** (done 2026-10-01: ran, no diff — `unicode-segmentation` was already in the tree) only if the pin bump changes
+  `Cargo.lock` (`tools/gen-third-party.sh`); keep `docs/PRIVACY.md` true.
+- [ ] Update `CLAUDE.md` "Current state" with the 2026-10-01 review and the
+  CI addition once the adoption above lands.
+
 ## Phase 1 — iPhone / iPadOS: Share Extension
 
 **Why first**: lowest effort of the five, because almost everything is
@@ -273,7 +307,9 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
   2026-09-29 review (its finding F30) found that reviews done only on
   explicit request let ~4,700 lines land unreviewed. Don't repeat that
   here.
-- [ ] **Ongoing:** when the build shows the upstream warning, or at the
+- [ ] **Ongoing** (last run 2026-10-01: `fb6946a` adopted, baseline
+  now `fb6946a`): when the
+  build shows the upstream warning, or at the
   start of a work session, run the review, act on it, and `--record` it.
   When Phase 1+ platforms or CI exist, run `upstream-review.sh --check
   --strict` in CI too.

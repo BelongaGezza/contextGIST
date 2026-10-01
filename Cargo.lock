@@ -196,6 +196,7 @@ dependencies = [
  "gist-model",
  "gist-parse-txt",
  "gist-rsvp",
+ "unicode-segmentation",
  "uniffi",
 ]
 
@@ -288,7 +289,7 @@ dependencies = [
 [[package]]
 name = "gist-model"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=9dc537c8a98f93b8dc69070284f7aa0413d7d6f4#9dc537c8a98f93b8dc69070284f7aa0413d7d6f4"
+source = "git+https://github.com/BelongaGezza/gist?rev=fb6946aacabd1dfa4335f3a628e0597f386f1481#fb6946aacabd1dfa4335f3a628e0597f386f1481"
 dependencies = [
  "serde",
  "serde_json",
@@ -300,7 +301,7 @@ dependencies = [
 [[package]]
 name = "gist-parse-txt"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=9dc537c8a98f93b8dc69070284f7aa0413d7d6f4#9dc537c8a98f93b8dc69070284f7aa0413d7d6f4"
+source = "git+https://github.com/BelongaGezza/gist?rev=fb6946aacabd1dfa4335f3a628e0597f386f1481#fb6946aacabd1dfa4335f3a628e0597f386f1481"
 dependencies = [
  "chardetng",
  "encoding_rs",
@@ -311,10 +312,11 @@ dependencies = [
 [[package]]
 name = "gist-rsvp"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=9dc537c8a98f93b8dc69070284f7aa0413d7d6f4#9dc537c8a98f93b8dc69070284f7aa0413d7d6f4"
+source = "git+https://github.com/BelongaGezza/gist?rev=fb6946aacabd1dfa4335f3a628e0597f386f1481#fb6946aacabd1dfa4335f3a628e0597f386f1481"
 dependencies = [
  "gist-model",
  "serde",
+ "unicode-segmentation",
 ]
 
 [[package]]
