@@ -2,7 +2,7 @@
 
 **Status:** current as of 2026-09-30. Describes what the shipped code
 actually does today, following the format of GIST's `docs/PRIVACY.md`
-(reader commit 17154ea). Each claim cites the file that backs it, so it can
+(GIST commit 17154ea). Each claim cites the file that backs it, so it can
 be re-verified against the source. Re-check this document whenever
 `apps/macos/Sources/`, `contextGIST.entitlements`, `Info.plist`, or
 `crates/contextgist-ffi` change.

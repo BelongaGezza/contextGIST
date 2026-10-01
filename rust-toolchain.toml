@@ -1,5 +1,5 @@
 [toolchain]
-# Independent of ~/develop/reader/rust-toolchain.toml (1.88.0) — that pin is
+# Independent of GIST's own rust-toolchain.toml (1.88.0) — that pin is
 # for GIST's own CI, and the path-dependency crates it exports have no MSRV
 # requirement of their own. contextGIST's uniffi version needs a newer
 # rustc than 1.88 to resolve its transitive deps, so this workspace pins

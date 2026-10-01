@@ -3,7 +3,7 @@
 contextGIST itself is MIT-licensed (see `LICENSE`). Its Rust core
 (`crates/contextgist-ffi`, statically linked into `contextGIST.app`) reuses
 GIST's `gist-model`/`gist-parse-txt`/`gist-rsvp` crates (MIT, same author,
-via path dependency) and depends on the external crates below. The macOS
+via a git dependency pinned to a commit) and depends on the external crates below. The macOS
 app has no other third-party dependencies: no Swift packages, no CocoaPods,
 no vendored SDKs.
 
@@ -11,9 +11,9 @@ no vendored SDKs.
 list ships inside the app as `Contents/Resources/ThirdPartyNotices.txt`.
 
 **Methodology:**
-- Regenerated 2026-09-30 from `Cargo.lock`: every crate reachable from
+- Regenerated 2026-10-01 from `Cargo.lock`: every crate reachable from
   `contextgist-ffi` via `cargo tree -e normal`, deduplicated, with each
-  crate's declared licence from `cargo metadata`. 55 external crates.
+  crate's declared licence from `cargo metadata`. 58 external crates.
 - uniffi's proc-macro crates only run at compile time and aren't part of
   the shipped machine code; they're listed anyway for completeness.
 - Checked against this repo's `deny.toml` (adapted from GIST's):
@@ -40,6 +40,9 @@ list ships inside the app as `Contents/Resources/ThirdPartyNotices.txt`.
 | fastrand | 2.5.0 | Apache-2.0 OR MIT | <https://github.com/smol-rs/fastrand> |
 | fs-err | 3.3.1 | MIT OR Apache-2.0 | <https://github.com/andrewhickman/fs-err> |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 | <https://github.com/rust-random/getrandom> |
+| gist-model | 0.1.0 | MIT | |
+| gist-parse-txt | 0.1.0 | MIT | |
+| gist-rsvp | 0.1.0 | MIT | |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 | <https://github.com/rust-lang/hashbrown> |
 | heck | 0.5.0 | MIT OR Apache-2.0 | <https://github.com/withoutboats/heck> |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT | <https://github.com/indexmap-rs/indexmap> |

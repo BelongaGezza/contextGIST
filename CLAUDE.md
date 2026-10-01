@@ -10,12 +10,12 @@ floating popup shows that text RSVP-style (one word at a time, paced) with
 play/pause/rewind/fast-forward/speed controls. On close, the text is
 discarded — no library, no persistence, no accounts.
 
-It lives at <https://github.com/BelongaGezza/contextGIST>. It is a narrow reuse of [GIST](https://github.com/BelongaGezza/gist) (local clone: `~/develop/reader`)'s RSVP pacing engine and
+It lives at <https://github.com/BelongaGezza/contextGIST>. It is a narrow reuse of [GIST](https://github.com/BelongaGezza/gist)'s RSVP pacing engine and
 tokenizer, not a fork of its git history. See
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the full design and
 **read it before touching `crates/contextgist-ffi` or
 `apps/macos/Sources/RsvpView.swift`'s `PacingEngine`** — both exist to stay
-behaviorally identical to specific code in `~/develop/reader`, and that
+behaviorally identical to specific code in GIST, and that
 file explains exactly what must stay in sync and why.
 
 Also see [`docs/SECURITY_REVIEW.md`](./docs/SECURITY_REVIEW.md) (point-in-time
@@ -29,22 +29,26 @@ way to run it today). [`docs/PRIVACY.md`](./docs/PRIVACY.md) and
 [`docs/THIRD-PARTY.md`](./docs/THIRD-PARTY.md) are user-facing
 disclosures, so keep them true when the code changes.
 
-## Relationship to GIST (~/develop/reader)
+## Relationship to GIST (https://github.com/BelongaGezza/gist)
 
 `crates/contextgist-ffi` depends on `gist-model`, `gist-parse-txt`, and
-`gist-rsvp` via relative path dependencies into `~/develop/reader/crates/`
-— not a vendored copy, not a git fork. This means:
+`gist-rsvp` as **git dependencies on `https://github.com/BelongaGezza/gist`, pinned by commit `rev`**
+in the workspace `Cargo.toml` (`[workspace.dependencies]`) — not a vendored
+copy, not a git fork. GitHub is the source of truth. This means:
 
-- **`~/develop/reader` must exist on disk** at that relative path for this
-  workspace to build at all. It is a clone of [https://github.com/BelongaGezza/gist](https://github.com/BelongaGezza/gist); on a fresh
-  machine run `git clone git@github.com:BelongaGezza/gist.git ~/develop/reader`
-  (as a sibling of this repo).
+- **No local GIST checkout is needed or consulted.** Cargo fetches the pinned
+  commit itself (network needed the first time; then cached in `~/.cargo`).
+  Any clone at `~/develop/reader` is just a personal working copy of GIST
+  and has no effect on this build.
 - Pacing/tokenization logic is never edited in this repo — if it needs to
-  change, change it upstream in `~/develop/reader` and this workspace picks
-  it up on the next build.
-- `~/develop/reader` may be on any branch, not necessarily GitHub `main`.
-  `UPSTREAM_BASELINE` records the last GIST commit this repo was reviewed
-  and tested against.
+  change, change it in GIST (PR/merge on GitHub), then adopt it here by
+  moving the pin via the upstream review below. To try an unmerged GIST
+  change locally, use a throwaway `[patch]` override
+  (`cargo --config 'patch."https://github.com/BelongaGezza/gist".gist-rsvp.path="/path/to/gist/crates/gist-rsvp"' test`)
+  and never commit it.
+- `UPSTREAM_BASELINE` records the last GIST commit (normally on `main`)
+  this repo was reviewed and tested against; it always equals the `rev` in
+  `Cargo.toml` (`--record` moves both).
 - **Upstream review is part of the development cycle.** At the start of a
   work session, and whenever the build prints `warning: GIST ... changed
   ... since the last upstream review`, run `tools/upstream-review.sh`.
@@ -55,13 +59,13 @@ disclosures, so keep them true when the code changes.
   blocked (`release-sign.sh`) until this is done.
 - `rust-toolchain.toml` here is pinned independently of GIST's own pin
   (1.88.0) — contextGIST's uniffi version needs a newer rustc than that to
-  resolve its transitive deps, and the path-dependency crates have no MSRV
+  resolve its transitive deps, and the git-dependency crates have no MSRV
   requirement forcing a match.
 
 ## Build / test commands
 
 ```bash
-# Rust workspace (crates/contextgist-ffi) — requires ~/develop/reader present
+# Rust workspace (crates/contextgist-ffi) — fetches GIST's crates from GitHub on first build
 cargo test --workspace
 cargo test -p contextgist-ffi tokenize_splits_words_and_paragraphs   # single test
 
@@ -78,8 +82,8 @@ cargo deny --exclude-dev check            # licence/advisory/source policy (deny
 ./tools/gen-app-icon.sh [--refresh-source]   # regenerate apps/macos/AppIcon.icon from GIST's icon artwork
 
 # Upstream (GIST) review
-./tools/upstream-review.sh [--fetch]      # what changed in ~/develop/reader since UPSTREAM_BASELINE, grouped by impact
-./tools/upstream-review.sh --record "..." # after reviewing: run tests, move the baseline, log it in ARCHITECTURE.md
+./tools/upstream-review.sh [--fetch]      # what changed in GIST (GitHub main) since UPSTREAM_BASELINE, grouped by impact
+./tools/upstream-review.sh --record "..." # after reviewing: move the Cargo.toml rev + baseline, run tests, log it in ARCHITECTURE.md
 ```
 
 `xcodegen` and Xcode are required for the macOS app; `brew install xcodegen`
@@ -133,7 +137,7 @@ ORP reticle (the red focal letter) was jittering left/right because
 `PreferenceKey`, which lags a render frame behind each word change. Fixed
 by computing the offset synchronously from character counts against the
 (monospaced) font's fixed advance width instead — see `WordDisplay` in
-`RsvpView.swift`. This bug doesn't exist upstream in `~/develop/reader`
+`RsvpView.swift`. This bug doesn't exist upstream in GIST
 (GIST's own RSVP view has no ORP centering at all yet), so it was filed as
 [gist#71](https://github.com/BelongaGezza/gist/issues/71) for that repo's
 own consideration rather than fixed there.
@@ -146,7 +150,7 @@ exists yet; macOS Services (+ the not-yet-started iOS Share Extension) is
 the only integration point today.
 
 2026-09-30: reviewed upstream GIST changes since the scaffold (baseline now
-reader `24f4138`). Adopted: GIST's `elapsedMs` rounding fix in
+GIST `24f4138`). Adopted: GIST's `elapsedMs` rounding fix in
 `PacingEngine`, a VoiceOver/contrast pass on the popup,
 `tools/build-dmg.sh`, licence notices (`tools/gen-third-party.sh`,
 bundled as `Resources/ThirdPartyNotices.txt`), and `docs/PRIVACY.md`.

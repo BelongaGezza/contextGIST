@@ -33,7 +33,7 @@ length check, before handing it to `RsvpPlayer.init` → `tokenize(text:)`
 the main thread (`DispatchQueue.main.async` in `AppServiceProvider.swift:19`
 just schedules `show(text:)`, it doesn't move tokenization off-main). The
 Rust side has a real ceiling (`gist_model::ParseLimits::default().max_bytes`
-= 256 MB — see `~/develop/reader/crates/gist-model/src/lib.rs:11`), but
+= 256 MB — see `crates/gist-model/src/lib.rs:11` in GIST), but
 nothing stops a misbehaving or malicious Services-sending app from handing
 over a pasteboard string near that size, and `tokens = ffiTokens.map(DisplayToken.init)`
 then eagerly materializes the *entire* token stream (each with an `orp_index`
@@ -161,6 +161,11 @@ specific rev, or promote the shared crates into a proper internal
 workspace/registry) and adopt the same `deny.toml` convention. This also
 directly sets up the multi-platform plan below, which needs a real answer
 to "what does the shared core crate look like" anyway.
+
+**Update 2026-10-01:** resolved. The path dependencies were replaced by git
+dependencies on `https://github.com/BelongaGezza/gist` pinned by commit `rev`
+in the workspace `Cargo.toml` (hash-locked in `Cargo.lock`, source allow-listed
+in `deny.toml`), so a local GIST checkout no longer influences the build.
 
 **Update 2026-09-30:** the pinning half is still open, but mitigated for
 solo dev. The tested upstream commit is recorded in `docs/ARCHITECTURE.md`

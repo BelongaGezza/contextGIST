@@ -1,35 +1,41 @@
 #!/usr/bin/env bash
-# Upstream review: what has changed in GIST (~/develop/reader) since the
-# commit contextGIST was last reviewed against (UPSTREAM_BASELINE), and
-# which of it can reach this app. See docs/ARCHITECTURE.md "Upstream
+# Upstream review: what has changed in GIST (github.com/BelongaGezza/gist)
+# since the commit contextGIST was last reviewed against (UPSTREAM_BASELINE),
+# and which of it can reach this app. Works from a read-only clone of GitHub
+# at .upstream/gist (created and fetched on demand; override the location
+# with GIST_UPSTREAM). No local GIST working copy is consulted. See docs/ARCHITECTURE.md "Upstream
 # baseline" for the procedure this supports.
 #
 # Usage:
 #   tools/upstream-review.sh              full report (for a human or Claude)
-#   tools/upstream-review.sh --fetch      same, after `git fetch` in GIST
+#   tools/upstream-review.sh --ref <ref>  review against <ref> instead of
+#                                         origin/main (a branch, tag or sha)
 #   tools/upstream-review.sh --check      one-line build warning if watched
-#                                         paths changed; always exits 0
+#                                         paths changed (offline: uses the
+#                                         clone as last fetched); always exits 0
 #                                         (run by gen-bindings.sh, i.e. on
 #                                         every Xcode build)
 #   tools/upstream-review.sh --check --strict
 #                                         same, but exits 1 if unreviewed
 #                                         (run by release-sign.sh)
 #   tools/upstream-review.sh --record "<note>"
-#                                         after reviewing: run the Rust tests
-#                                         against the current GIST checkout
-#                                         and, if they pass, make it the new
-#                                         baseline and add a row to the
+#                                         after reviewing: pin the workspace's
+#                                         gist-* git dependencies to the
+#                                         reviewed commit (Cargo.toml), run the
+#                                         Rust tests, and if they pass make it
+#                                         the new baseline and add a row to the
 #                                         ARCHITECTURE.md table
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-UPSTREAM="$(cd "$REPO_ROOT/.." && pwd)/reader"
+GIST_URL="https://github.com/BelongaGezza/gist.git"
+UPSTREAM="${GIST_UPSTREAM:-$REPO_ROOT/.upstream/gist}"
 BASELINE_FILE="$REPO_ROOT/UPSTREAM_BASELINE"
 
 # What of GIST can reach contextGIST, grouped by how it arrives.
-# Shared crates: compiled in via path dependency, so changes arrive on the
-# next build with no action here. Everything else needs a deliberate port.
+# Shared crates: compiled in via the rev-pinned git dependency, so they change
+# only when `--record` moves the pin. Everything else needs a deliberate port.
 SHARED_CRATES="crates/gist-model crates/gist-parse-txt crates/gist-rsvp"
 # GIST's Swift pacing/ORP code, which PacingEngine in
 # apps/macos/Sources/RsvpView.swift is a hand port of.
@@ -40,12 +46,12 @@ ICON_ART="assets"
 POLICY="deny.toml docs/security-review-v2.md docs/security-quality-review-2026-09-29.md SECURITY.md"
 WATCHED="$SHARED_CRATES $SWIFT_PORT $ICON_ART"
 
-MODE=report STRICT=0 FETCH=0 NOTE=""
+MODE=report STRICT=0 REF="origin/main" NOTE=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --check) MODE=check ;;
         --strict) STRICT=1 ;;
-        --fetch) FETCH=1 ;;
+        --ref) REF="${2:?--ref needs a branch, tag or sha}"; shift ;;
         --record) MODE=record; NOTE="${2:?--record needs a note describing the review}"; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
@@ -56,28 +62,40 @@ done
 BASE="$(sed -n 's/^commit=//p' "$BASELINE_FILE")"
 BASE_DATE="$(sed -n 's/^reviewed=//p' "$BASELINE_FILE")"
 
-if [ ! -d "$UPSTREAM/.git" ]; then
-    # Without GIST on disk the build fails anyway (path dependencies).
-    echo "warning: upstream-review: $UPSTREAM not found" >&2
-    [ "$MODE" = check ] && [ "$STRICT" = 0 ] && exit 0
-    exit 1
+g() { git -C "$UPSTREAM" "$@"; }
+
+# --check never touches the network (it runs on every Xcode build); the other
+# modes create the clone if needed and fetch before comparing.
+if [ "$MODE" = check ]; then
+    if [ ! -d "$UPSTREAM/.git" ]; then
+        # Not an error: nothing to compare against until the first full review.
+        echo "note: upstream-review: no GIST clone at ${UPSTREAM#"$REPO_ROOT"/}; run tools/upstream-review.sh to create one."
+        [ "$STRICT" = 1 ] && exit 1
+        exit 0
+    fi
+else
+    if [ ! -d "$UPSTREAM/.git" ]; then
+        echo "→ Cloning $GIST_URL into ${UPSTREAM#"$REPO_ROOT"/} (read-only review copy)..."
+        mkdir -p "$(dirname "$UPSTREAM")"
+        git clone --quiet "$GIST_URL" "$UPSTREAM"
+    else
+        g fetch --quiet --tags origin || echo "(fetch failed; using the clone as last fetched)" >&2
+    fi
 fi
 
-g() { git -C "$UPSTREAM" "$@"; }
-HEAD_SHA="$(g rev-parse HEAD)"
-BRANCH="$(g branch --show-current 2>/dev/null || true)"
-BRANCH="${BRANCH:-(detached)}"
+TARGET_SHA="$(g rev-parse --verify -q "$REF^{commit}")" || { echo "error: cannot resolve '$REF' in $UPSTREAM" >&2; exit 1; }
+HEAD_SHA="$TARGET_SHA"
+BRANCH="$REF"
 
-# Watched-path differences between the baseline and the GIST *working
-# tree* (so uncommitted upstream edits count too; they're compiled in).
+# Watched-path differences between the baseline and the review target.
 # shellcheck disable=SC2086
-changed_paths() { g diff --name-only "$BASE" -- $WATCHED 2>/dev/null; }
+changed_paths() { g diff --name-only "$BASE" "$TARGET_SHA" -- $WATCHED 2>/dev/null; }
 
 # ── --check: build-time nudge ───────────────────────────────────────────────
 if [ "$MODE" = check ]; then
     CHANGED="$(changed_paths | wc -l | tr -d ' ')"
     if [ "$CHANGED" != 0 ]; then
-        MSG="GIST (~/develop/reader @ ${HEAD_SHA:0:7}, $BRANCH) has $CHANGED changed file(s) in code contextGIST uses since the last upstream review (${BASE:0:7}, $BASE_DATE). Run tools/upstream-review.sh."
+        MSG="GIST ($BRANCH @ ${HEAD_SHA:0:7}, as last fetched) has $CHANGED changed file(s) in code contextGIST uses since the last upstream review (${BASE:0:7}, $BASE_DATE). Run tools/upstream-review.sh."
         if [ "$STRICT" = 1 ]; then
             echo "error: $MSG" >&2
             exit 1
@@ -89,18 +107,22 @@ fi
 
 # ── --record: accept the current checkout as the new baseline ───────────────
 if [ "$MODE" = record ]; then
-    # shellcheck disable=SC2086
-    if [ -n "$(g status --porcelain -- $WATCHED)" ]; then
-        echo "error: GIST has uncommitted changes in watched paths; a baseline must be a commit:" >&2
-        # shellcheck disable=SC2086
-        g status --short -- $WATCHED >&2
+    # Pin the shared crates to the reviewed commit. Cargo.toml's workspace
+    # dependency `rev` is what actually decides what gets built.
+    CARGO_TOML="$REPO_ROOT/Cargo.toml"
+    cp "$CARGO_TOML" "$CARGO_TOML.bak"; cp "$REPO_ROOT/Cargo.lock" "$REPO_ROOT/Cargo.lock.bak"
+    restore() { mv "$CARGO_TOML.bak" "$CARGO_TOML"; mv "$REPO_ROOT/Cargo.lock.bak" "$REPO_ROOT/Cargo.lock"; }
+    sed -i '' -E "/^gist-(model|parse-txt|rsvp) .*BelongaGezza\/gist/ s/rev = \"[0-9a-f]+\"/rev = \"$HEAD_SHA\"/" "$CARGO_TOML"
+    echo "→ Running contextGIST's tests against GIST ${HEAD_SHA:0:7} ($BRANCH)..."
+    if ! (cd "$REPO_ROOT" && cargo test --workspace); then
+        restore
+        echo "error: tests failed against ${HEAD_SHA:0:7}; Cargo.toml/Cargo.lock restored, baseline unchanged." >&2
         exit 1
     fi
-    echo "→ Running contextGIST's tests against GIST ${HEAD_SHA:0:7} ($BRANCH)..."
-    (cd "$REPO_ROOT" && cargo test --workspace)
+    rm -f "$CARGO_TOML.bak" "$REPO_ROOT/Cargo.lock.bak"
     TODAY="$(date +%Y-%m-%d)"
     cat > "$BASELINE_FILE" <<EOF
-# The last ~/develop/reader (GIST) commit contextGIST was reviewed and
+# The last GIST (github.com/BelongaGezza/gist) commit contextGIST was reviewed and
 # tested against. Written by \`tools/upstream-review.sh --record\`; don't edit
 # by hand. History and notes: docs/ARCHITECTURE.md "Upstream baseline".
 commit=$HEAD_SHA
@@ -118,48 +140,39 @@ if not rows:
 lines.insert(rows[-1] + 1, f"| {date} | `{sha}` | `{branch}` | {note} |")
 open(path, "w").write("\n".join(lines))
 PY
-    echo "✓ Baseline is now ${HEAD_SHA:0:7} ($BRANCH); row added to docs/ARCHITECTURE.md. Commit both."
+    echo "✓ Baseline and Cargo.toml pin are now ${HEAD_SHA:0:7} ($BRANCH); row added to docs/ARCHITECTURE.md."
+    echo "  If dependencies changed, run tools/gen-third-party.sh. Then commit UPSTREAM_BASELINE, Cargo.toml, Cargo.lock and the docs."
     exit 0
 fi
 
 # ── Report ──────────────────────────────────────────────────────────────────
-if [ "$FETCH" = 1 ]; then
-    g fetch --quiet origin || echo "(fetch failed; reporting on local refs)"
-fi
-
-echo "Upstream review: GIST (~/develop/reader)"
+echo "Upstream review: GIST ($GIST_URL)"
 echo "  baseline : ${BASE:0:7} (reviewed $BASE_DATE)"
-echo "  checkout : ${HEAD_SHA:0:7} on $BRANCH"
-if g rev-parse -q --verify origin/main >/dev/null; then
-    read -r AHEAD BEHIND <<<"$(g rev-list --left-right --count HEAD...origin/main)"
-    echo "  vs origin/main: $AHEAD ahead, $BEHIND behind"
-fi
-MISSING="$(g rev-list --count "HEAD..$BASE" 2>/dev/null || echo "?")"
+echo "  target   : ${HEAD_SHA:0:7} ($BRANCH)"
+MISSING="$(g rev-list --count "$HEAD_SHA..$BASE" 2>/dev/null || echo "?")"
 if [ "$MISSING" != 0 ]; then
-    echo "  note: this checkout lacks $MISSING commit(s) of the baseline (older or different branch)."
+    echo "  note: the target lacks $MISSING commit(s) of the baseline (older or different branch)."
 fi
 echo
 
 SHOWN=""
 section() {
     local title="$1"; shift
-    local commits files dirty
-    commits="$(g log --no-merges --format='    %h %ad %s' --date=short "$BASE..HEAD" -- "$@")"
-    SHOWN="$SHOWN $(g log --no-merges --format=%h "$BASE..HEAD" -- "$@" | tr '\n' ' ')"
-    files="$(g diff --stat=100 "$BASE" -- "$@" | tail -1)"
-    dirty="$(g status --short -- "$@")"
+    local commits files
+    commits="$(g log --no-merges --format='    %h %ad %s' --date=short "$BASE..$HEAD_SHA" -- "$@")"
+    SHOWN="$SHOWN $(g log --no-merges --format=%h "$BASE..$HEAD_SHA" -- "$@" | tr '\n' ' ')"
+    files="$(g diff --stat=100 "$BASE" "$HEAD_SHA" -- "$@" | tail -1)"
     echo "■ $title"
-    if [ -z "$commits" ] && [ -z "$dirty" ]; then
+    if [ -z "$commits" ]; then
         echo "    no changes"
     else
-        [ -n "$commits" ] && echo "$commits"
-        [ -n "$dirty" ] && { echo "    uncommitted in GIST's working tree:"; echo "$dirty" | sed 's/^/      /'; }
+        echo "$commits"
         [ -n "$files" ] && echo "    total:$files"
     fi
     echo
 }
 # shellcheck disable=SC2086
-section "Shared crates: compiled into contextGIST, changes arrive on the next build (check behaviour + tests)" $SHARED_CRATES
+section "Shared crates: compiled into contextGIST; adopting means moving the pin (--record) after checking behaviour + tests" $SHARED_CRATES
 section "GIST's Swift pacing/ORP code: PacingEngine is a hand port, so diff and port applicable fixes" $SWIFT_PORT
 section "Icon artwork: tools/gen-app-icon.sh --refresh-source picks up new artwork" $ICON_ART
 # shellcheck disable=SC2086
@@ -167,7 +180,7 @@ section "Security/dependency policy: mirror applicable rules in deny.toml / SECU
 
 # Commits not already listed in a section above.
 OTHER=""
-for sha in $(g log --no-merges --format=%h "$BASE..HEAD"); do
+for sha in $(g log --no-merges --format=%h "$BASE..$HEAD_SHA"); do
     case " $SHOWN " in *" $sha "*) ;; *) OTHER="$OTHER$(g log -1 --format='    %h %ad %s' --date=short "$sha")
 " ;; esac
 done

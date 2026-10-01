@@ -11,15 +11,16 @@ popup closes, the text is gone. There is no library, no import flow, and no
 persistence of any kind.
 
 This is a deliberately narrow slice of [GIST](https://github.com/BelongaGezza/gist) (the
-full reader app, cloned locally at `~/develop/reader`): its RSVP pacing engine and
+full reader app): its RSVP pacing engine and
 tokenizer, with none of its library/storage/search/encryption machinery.
 
 ## Relationship to GIST
 
 contextGIST is its own repository. It does not fork GIST's git history or
 vendor a copy of its code. Instead, `crates/contextgist-ffi/Cargo.toml`
-depends on three of GIST's crates directly via relative path dependencies
-into `~/develop/reader/crates/`:
+depends on three of GIST's crates directly as git dependencies on
+`https://github.com/BelongaGezza/gist`, pinned to a commit `rev` in the
+workspace `Cargo.toml`:
 
 - **`gist-model`** — `Token`/`TokenKind`, and the `Document::build_token_stream`
   algorithm (whitespace-split words, blank-line-separated paragraphs).
@@ -31,40 +32,41 @@ into `~/develop/reader/crates/`:
   (Optimal Recognition Point) calculation. No changes were made to this
   crate to build contextGIST.
 
-Because these are path dependencies rather than a copy, pacing/tokenization
-behavior never drifts from upstream GIST — a bug fix or pacing tweak in
-`~/develop/reader` is picked up the next time contextGIST is built. The
-trade-off is that the two repos must stay co-located on disk (both under
-`~/develop/`); contextGIST does not build standalone if `~/develop/reader`
-is moved or absent.
+Because these are pinned git dependencies rather than a copy,
+pacing/tokenization behavior never drifts from upstream GIST — a bug fix or
+pacing tweak merged in GIST is adopted by reviewing it (below) and moving
+the pin. The build is reproducible from GitHub alone: it never reads a
+local GIST checkout, and a clean clone of this repo builds anywhere with
+network access to fetch the pinned commit.
 
 ### Upstream baseline
 
-Because the dependency is a path, contextGIST builds against whatever
-branch/commit `~/develop/reader` happens to have checked out — not
-necessarily GitHub `main`. contextGIST exists to reuse GIST, so reviewing
-upstream changes is part of the normal development cycle, not a one-off.
+contextGIST builds against exactly the GIST commit pinned in `Cargo.toml`
+(normally on GitHub `main`); nothing upstream reaches it until the pin
+moves. contextGIST exists to reuse GIST, so reviewing upstream changes is
+part of the normal development cycle, not a one-off.
 
 **How it's enforced.** `UPSTREAM_BASELINE` records the last GIST commit
-contextGIST was reviewed and tested against. `tools/upstream-review.sh`
-compares the current `~/develop/reader` checkout (including uncommitted
-edits) with it:
+contextGIST was reviewed and tested against (always equal to the `rev` pin
+in `Cargo.toml`). `tools/upstream-review.sh` compares GIST's GitHub `main`
+(via a read-only clone it keeps at the gitignored `.upstream/gist`) with it:
 
 - **Every build:** `gen-bindings.sh` runs `upstream-review.sh --check`,
-  which prints an Xcode build warning when GIST code that contextGIST uses
-  has changed since the baseline. The build doesn't fail.
+  which (offline, using the clone as last fetched) prints an Xcode build
+  warning when GIST code that contextGIST uses has changed since the
+  baseline. The build doesn't fail.
 - **Every release:** `release-sign.sh` runs `--check --strict` and refuses to
   sign until the review is done (`ALLOW_UNREVIEWED_UPSTREAM=1` overrides,
   with a warning).
-- **Start of a work session:** run `tools/upstream-review.sh` (add `--fetch`
-  to see GitHub too), so work starts from a reviewed upstream.
+- **Start of a work session:** run `tools/upstream-review.sh` (it fetches
+  GitHub first), so work starts from a reviewed upstream.
 
 **Doing a review.** `tools/upstream-review.sh` groups changes by how they
 can reach contextGIST. For each item, decide *adopt*, *port* or *skip*:
 
 1. **Shared crates** (`gist-model`, `gist-parse-txt`, `gist-rsvp`): compiled
-   in, so their changes arrive on the next build with no action. Check the
-   behaviour change is wanted, and update any contextGIST test that pins
+   in at the pinned commit; they change only when `--record` moves the pin.
+   Check the behaviour change is wanted, and update any contextGIST test that pins
    upstream behaviour (e.g. `line_ending_styles`).
 2. **GIST's Swift pacing/ORP code** (`apps/apple/macOS/RsvpView.swift`):
    `PacingEngine` is a hand port, so diff it and port pacing fixes. UI-only
@@ -85,9 +87,9 @@ any adopted changes.
 
 History of reviews:
 
-| Date | `~/develop/reader` commit | Branch | Notes |
+| Date | GIST commit | Branch | Notes |
 |---|---|---|---|
-| 2026-09-30 | `24f4138` | `integration/m4-2026-09-28` (24 commits ahead of `origin/main` `75700c6`) | Upstream changes since the 2026-09-25 scaffold (`5ab99ab`) reviewed. Path-dep crates changed only additively (`gist-model::ParseError`, tests, a `gist-parse-txt` benchmark), with no pacing or tokenization change. Ported the `elapsedMs` rounding fix from GIST's `RsvpWallClockEngine` (reader `6717ca5`). |
+| 2026-09-30 | `24f4138` | `integration/m4-2026-09-28` (24 commits ahead of `origin/main` `75700c6`) | Upstream changes since the 2026-09-25 scaffold (`5ab99ab`) reviewed. Path-dep crates changed only additively (`gist-model::ParseError`, tests, a `gist-parse-txt` benchmark), with no pacing or tokenization change. Ported the `elapsedMs` rounding fix from GIST's `RsvpWallClockEngine` (GIST `6717ca5`). |
 | 2026-09-30 | `9dc537c` | `main` | First review under the new process (24f4138 to `9dc537c`, GIST `main`). Adopted: the #76 paragraph fix (filed from here; reviewed as `695fba1` on its branch, merged to `main` as PR #77 `9dc537c` with an identical tree) arrives via `gist-parse-txt`; `line_ending_styles` now expects a break for CRLF, CR, U+2029 and whitespace-only blank lines. No change: `fb33b2e` commits icon art byte-identical to `IconSource/`. Skipped: `4e391db` (GIST string catalog). #71 closed upstream; contextGIST already centres the ORP letter. |
 
 See also `docs/SECURITY_REVIEW.md` finding #4.
@@ -125,7 +127,7 @@ a real upstream panic still fails a test instead of being hidden.
 `gist-rsvp`'s own doc comment says it's meant to be driven "from
 `CVDisplayLink` by calling `token_at_elapsed` on every frame" — but GIST's
 own macOS shell moved away from that: `RsvpWallClockEngine` in
-`reader/apps/apple/macOS/RsvpView.swift` is a hand-ported, wall-clock-
+GIST's `apps/apple/macOS/RsvpView.swift` is a hand-ported, wall-clock-
 anchored copy of `token_duration_ms`/`token_at_elapsed`, called locally
 every tick instead of round-tripping through FFI, specifically to avoid
 scheduling jitter accumulating as drift.
@@ -140,13 +142,13 @@ closes.
 GIST later wrote up why its Swift shell keeps a `Task.sleep`-driven,
 state-published redraw rather than a manual `CVDisplayLink` integration
 (the doc comment on `RsvpWallClockEngine` in
-`reader/apps/apple/macOS/RsvpView.swift`, reader commit `6717ca5`). The
+GIST's `apps/apple/macOS/RsvpView.swift`, GIST commit `6717ca5`). The
 reasoning applies unchanged to `PacingEngine`: drift is already fixed at the
 model level, and a `CVDisplayLink` callback would still have to go through
 SwiftUI's state system to change pixels. Revisit only if hands-on testing
 at 800–1000 WPM shows visible per-word jitter.
 
-Not ported from GIST's newer RSVP view (reader `6717ca5`), by decision: the
+Not ported from GIST's newer RSVP view (GIST `6717ca5`), by decision: the
 punctuation-pause toggle (it changes the pacing math this port must match;
 adopt it verbatim or not at all), the scrub slider, session stats, and the
 rotary dial. GIST's Swift-side `OrpCalculator` isn't needed either:
@@ -198,9 +200,9 @@ drift from the Rust rule.
 
 `apps/macos/AppIcon.icon` (Icon Composer format) is generated by
 `tools/gen-app-icon.sh` from GIST's macOS icon artwork
-(`~/develop/reader/assets/a-macos-app-icon.png`, same author). The artwork
-is copied into `apps/macos/IconSource/` because it isn't committed
-upstream. Don't hand-edit the `.icon`; change the source and re-run the
+(`assets/a-macos-app-icon.png` in GIST, same author). The artwork
+is copied into `apps/macos/IconSource/` so the icon builds offline;
+`--refresh-source` re-downloads it from GIST's `main`. Don't hand-edit the `.icon`; change the source and re-run the
 script.
 
 - **Why it's reshaped:** GIST's artwork has its own rounded body shape and a

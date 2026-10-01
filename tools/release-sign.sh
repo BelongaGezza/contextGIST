@@ -19,7 +19,7 @@
 # on the dev machine. Treat the first real run as the test.
 #
 # Adapted from GIST's tools/notarize.sh and release-macos.yml
-# (reader b20908d), which this repo doesn't use directly (no CI set up here yet).
+# (GIST b20908d), which this repo doesn't use directly (no CI set up here yet).
 set -euo pipefail
 
 APP_PATH="${1:?Usage: release-sign.sh <path/to/contextGIST.app> <out.dmg>}"
