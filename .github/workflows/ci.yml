@@ -1,0 +1,88 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so new RUSTSEC advisories surface without needing a commit.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Rust core: tests run against GIST's crates as pinned in Cargo.toml (a git
+  # dependency on BelongaGezza/gist; cargo fetches it, no checkout needed).
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # rust-toolchain.toml pins the channel; rustup installs it on first use.
+      - run: rustup show active-toolchain
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-rust-
+      - run: cargo test --workspace --locked
+
+  # Licence / advisory / source policy (deny.toml). Separate job so a new
+  # advisory never hides test results (and vice versa).
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # v2.1.1 bundles cargo-deny 0.20.2, the first version able to parse
+      # RUSTSEC's CVSS 4.0 entries (same pin GIST's core-quality uses).
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25  # v2.1.1
+        with:
+          arguments: --exclude-dev
+
+  # The app itself: Debug build, no code signing (signing/notarization is
+  # tools/release-sign.sh's job and needs secrets this workflow doesn't have).
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90  # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - run: rustup show active-toolchain
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-macos-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-macos-
+      # Not preinstalled on the runner; Homebrew won't install a bare formula
+      # file, so use the project's pinned release archive (as GIST's CI does).
+      - name: Install XcodeGen (pinned 2.46.0)
+        run: |
+          curl -fsSL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          unzip -q /tmp/xcodegen.zip -d /tmp
+          sudo /tmp/xcodegen/install.sh
+      # Builds contextgist-ffi and generates apps/macos/Generated/*.swift.
+      - run: ./tools/gen-bindings.sh
+      - name: xcodegen generate
+        working-directory: apps/macos
+        run: xcodegen generate
+      - name: xcodebuild build
+        working-directory: apps/macos
+        run: |
+          xcodebuild build \
+            -scheme contextGIST \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO

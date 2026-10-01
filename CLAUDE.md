@@ -86,6 +86,11 @@ cargo deny --exclude-dev check            # licence/advisory/source policy (deny
 ./tools/upstream-review.sh --record "..." # after reviewing: move the Cargo.toml rev + baseline, run tests, log it in ARCHITECTURE.md
 ```
 
+CI (`.github/workflows/ci.yml`, on push to `main`, PRs and weekly) runs
+`cargo test --workspace --locked`, `cargo deny --exclude-dev check`, and an
+unsigned Debug `xcodebuild` of the app. Keep those three green; signing and
+notarization stay local (`tools/release-sign.sh`).
+
 `xcodegen` and Xcode are required for the macOS app; `brew install xcodegen`
 if missing. The Xcode project's pre-build script runs
 `tools/gen-bindings.sh` automatically, so a plain `xcodebuild` after

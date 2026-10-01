@@ -78,10 +78,10 @@ its *shape* (everyone else). Fix it once, here, before multiplying it.
   check` passes all four checks with cargo-deny 0.20.2. The local 0.18.3
   can't parse the current advisory DB; `cargo install cargo-deny --locked`
   fixes that.
-- [ ] Install `cargo-audit` (or `cargo-deny`) in CI once CI exists — no CI
-  exists yet, so there's currently no automated dependency-vulnerability
-  gate at all. **Blocked: no CI yet** (the GitHub remote now exists; a CI job needs no GIST checkout — Cargo fetches the pinned git dependency). When it exists, run `cargo deny
-  --exclude-dev check` (policy already in `deny.toml`).
+- [x] Run `cargo deny` in CI: done in `.github/workflows/ci.yml` (`deny` job,
+  also weekly so new advisories surface). Originally: no CI existed, so there
+  was no automated dependency-vulnerability gate at all. CI needs no GIST checkout — Cargo fetches
+  the pinned git dependency.
 
 Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
 2026-09-30; see `docs/ARCHITECTURE.md` "Upstream baseline"):
