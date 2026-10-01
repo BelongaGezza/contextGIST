@@ -329,6 +329,34 @@ mod tests {
         assert_eq!(gist_rsvp::orp_index(""), 0);
     }
 
+    /// The FFI's ORP offset must land on a Swift `Character` (extended
+    /// grapheme cluster) boundary, since `DisplayToken.orpParts` falls back
+    /// to "no focus letter" when `samePosition(in:)` fails. Pins GIST
+    /// `fb6946a` (orp_index counts grapheme clusters, not chars).
+    #[test]
+    fn ffi_orp_index_is_a_grapheme_cluster_boundary() {
+        use unicode_segmentation::UnicodeSegmentation;
+        for w in [
+            "Hello",
+            "naïve",
+            "re\u{0301}sume\u{0301}",
+            "👍🏽",
+            "🇬🇧",
+            "🇬🇧🇫🇷 flags",
+            "👨\u{200D}👩\u{200D}👧 family",
+            "a👍🏽b",
+            "e\u{0301}\u{0302}\u{0303}x",
+        ] {
+            let i = orp_index(w.to_string()) as usize;
+            assert!(
+                w.grapheme_indices(true).any(|(b, _)| b == i),
+                "{w:?} -> {i} is not a cluster boundary"
+            );
+        }
+        assert_eq!(orp_index("👍🏽".to_string()), 0);
+        assert_eq!(orp_index("🇬🇧".to_string()), 0);
+    }
+
     /// Deterministic pseudo-fuzz over a pool of awkward characters. No
     /// proptest dependency: a fixed-seed xorshift keeps failures
     /// reproducible from the printed seed/iteration.

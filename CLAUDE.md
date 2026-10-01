@@ -161,3 +161,9 @@ GIST `24f4138`). Adopted: GIST's `elapsedMs` rounding fix in
 bundled as `Resources/ThirdPartyNotices.txt`), and `docs/PRIVACY.md`.
 Deliberately not ported: GIST's punctuation-pause toggle, scrub slider,
 session stats, and rotary dial (see `docs/ARCHITECTURE.md`).
+
+2026-10-01: reviewed upstream again (baseline now GIST `fb6946a`). Adopted
+gist#79 (`orp_index` counts grapheme clusters, so the focal letter can no
+longer split an emoji/flag/accent); Swift `orpParts` already worked in
+`Character`s so needed no change. Added an FFI cluster-boundary test (14
+tests). CI (cargo test, cargo deny, unsigned Debug xcodebuild) is green.
