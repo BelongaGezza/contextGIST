@@ -357,6 +357,120 @@ mod tests {
         assert_eq!(orp_index("🇬🇧".to_string()), 0);
     }
 
+    // ── Golden parity data for the Swift tests ──────────────────────────────
+    //
+    // `apps/macos/Tests/golden.json` holds tokenization, ORP offsets, token
+    // durations and `token_at_elapsed` results produced by the real GIST
+    // crates. The Swift `PacingEngine`/`DisplayToken` tests (apps/macos/Tests)
+    // must reproduce them exactly, so a drift between the hand-ported Swift
+    // and gist-rsvp fails CI. This test fails if the committed file is stale
+    // (e.g. after moving the GIST pin); regenerate with
+    //   UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden
+    // then re-run the Swift tests.
+
+    const GOLDEN_TEXT: &str = "Hello, world. It was 3.14 or 1,000. Wait! \"Quoted?\" (done.) \
+        U.S.A. rocks; so… ok: fine\n\nSecond paragraph, with 42 and 7. \
+        naïve 👍🏽 🇬🇧 re\u{0301}sume\u{0301} 👨\u{200D}👩x end";
+    const GOLDEN_WPMS: [u32; 7] = [50, 100, 250, 333, 600, 1000, 5000];
+    const GOLDEN_ELAPSED: [u64; 9] = [0, 1, 59, 60, 239, 240, 1000, 5000, 1_000_000];
+
+    fn json_str(s: &str) -> String {
+        let mut out = String::from("\"");
+        for c in s.chars() {
+            match c {
+                '"' => out.push_str("\\\""),
+                '\\' => out.push_str("\\\\"),
+                '\n' => out.push_str("\\n"),
+                c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+                c => out.push(c),
+            }
+        }
+        out.push('"');
+        out
+    }
+
+    fn golden_json() -> String {
+        let tokens = tokenize_checked(GOLDEN_TEXT);
+        let kind = |t: &gist_model::Token| match t.kind {
+            gist_model::TokenKind::Word => "word",
+            gist_model::TokenKind::ParagraphBreak => "paragraphBreak",
+            gist_model::TokenKind::SectionBreak => "sectionBreak",
+        };
+        let mut o = String::from("{\n");
+        o.push_str(&format!("  \"text\": {},\n", json_str(GOLDEN_TEXT)));
+        let cfg = gist_rsvp::Config::default();
+        o.push_str(&format!(
+            "  \"config\": {{\"pauseSentence\": {}, \"pauseComma\": {}, \"pauseParagraph\": {}, \"pauseNumeral\": {}}},\n",
+            cfg.pause_sentence, cfg.pause_comma, cfg.pause_paragraph, cfg.pause_numeral
+        ));
+        o.push_str("  \"tokens\": [\n");
+        let rows: Vec<String> = tokens
+            .iter()
+            .map(|t| {
+                let orp = if t.kind == gist_model::TokenKind::Word {
+                    gist_rsvp::orp_index(&t.text)
+                } else {
+                    0
+                };
+                format!(
+                    "    {{\"text\": {}, \"kind\": \"{}\", \"orp\": {}}}",
+                    json_str(&t.text),
+                    kind(t),
+                    orp
+                )
+            })
+            .collect();
+        o.push_str(&rows.join(",\n"));
+        o.push_str("\n  ],\n  \"durations\": [\n");
+        let mut drows = Vec::new();
+        let mut arows = Vec::new();
+        for wpm in GOLDEN_WPMS {
+            let mut session = gist_rsvp::RsvpSession::new(
+                tokens.clone(),
+                gist_rsvp::Config { wpm, ..gist_rsvp::Config::default() },
+            );
+            let durs: Vec<String> = (0..tokens.len())
+                .map(|i| session.token_duration_ms(i).to_string())
+                .collect();
+            drows.push(format!("    {{\"wpm\": {wpm}, \"ms\": [{}]}}", durs.join(", ")));
+            for cursor in [0, 3, tokens.len() / 2, tokens.len() - 1] {
+                session.cursor = cursor;
+                let idx: Vec<String> = GOLDEN_ELAPSED
+                    .iter()
+                    .map(|&e| session.token_at_elapsed(e).to_string())
+                    .collect();
+                arows.push(format!(
+                    "    {{\"wpm\": {wpm}, \"cursor\": {cursor}, \"index\": [{}]}}",
+                    idx.join(", ")
+                ));
+            }
+        }
+        o.push_str(&drows.join(",\n"));
+        o.push_str("\n  ],\n  \"elapsedMs\": [");
+        o.push_str(&GOLDEN_ELAPSED.map(|e| e.to_string()).join(", "));
+        o.push_str("],\n  \"atElapsed\": [\n");
+        o.push_str(&arows.join(",\n"));
+        o.push_str("\n  ]\n}\n");
+        o
+    }
+
+    #[test]
+    fn golden_file_matches_gist_rsvp() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/macos/Tests/golden.json");
+        let fresh = golden_json();
+        if std::env::var_os("UPDATE_GOLDEN").is_some() {
+            std::fs::write(path, &fresh).expect("write golden.json");
+            return;
+        }
+        let committed = std::fs::read_to_string(path)
+            .expect("apps/macos/Tests/golden.json missing; run UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden");
+        assert!(
+            committed == fresh,
+            "apps/macos/Tests/golden.json is stale vs gist-rsvp; regenerate with \
+             UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden, then run the Swift tests"
+        );
+    }
+
     /// Deterministic pseudo-fuzz over a pool of awkward characters. No
     /// proptest dependency: a fixed-seed xorshift keeps failures
     /// reproducible from the printed seed/iteration.

@@ -167,3 +167,9 @@ gist#79 (`orp_index` counts grapheme clusters, so the focal letter can no
 longer split an emoji/flag/accent); Swift `orpParts` already worked in
 `Character`s so needed no change. Added an FFI cluster-boundary test (14
 tests). CI (cargo test, cargo deny, unsigned Debug xcodebuild) is green.
+
+Also 2026-10-01: added the `contextGISTTests` XCTest target (11 parity tests
+for `PacingEngine`/`DisplayToken`/`skipWords`, expected values in
+`apps/macos/Tests/golden.json` generated from the Rust core; run in CI).
+`DisplayToken`, `PacingEngine` and `skipWords` are internal rather than
+private only so the tests can reach them.

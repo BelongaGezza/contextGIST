@@ -94,6 +94,46 @@ targets:
         inputFiles: []
         outputFiles: []
 
+  contextGISTTests:
+    type: bundle.unit-test
+    platform: macOS
+    # Pure-logic parity tests (PacingEngine / DisplayToken vs the Rust core).
+    # RsvpView.swift and the uniffi bindings are compiled straight into the
+    # test bundle (no host app to launch), so the staticlib is linked here too.
+    sources:
+      - path: Tests
+        type: group
+        excludes:
+          - golden.json
+      - path: Tests/golden.json
+        buildPhase: resources
+      - path: Sources/RsvpView.swift
+      - path: Generated
+        type: group
+    dependencies:
+      # Ensures the app target's pre-build script has generated Generated/ and
+      # built the staticlib first; not linked or hosted.
+      - target: contextGIST
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.contextgist.macos.tests
+        GENERATE_INFOPLIST_FILE: YES
+        # XcodeGen would otherwise host the tests in the app (launching it and
+        # duplicating RsvpView.swift); these are standalone logic tests.
+        TEST_HOST: ""
+        BUNDLE_LOADER: ""
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        OTHER_LDFLAGS: -lcontextgist_ffi
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Generated"
+        SWIFT_INCLUDE_PATHS: "$(SRCROOT)/Generated"
+        OTHER_SWIFT_FLAGS: "-Xcc -fmodule-map-file=$(SRCROOT)/Generated/contextgist_ffiFFI.modulemap"
+      configs:
+        Debug:
+          LIBRARY_SEARCH_PATHS: "$(SRCROOT)/../../target/debug"
+        Release:
+          LIBRARY_SEARCH_PATHS: "$(SRCROOT)/../../target/universal/release"
+
 schemes:
   contextGIST:
     build:
@@ -101,3 +141,7 @@ schemes:
         contextGIST: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - contextGISTTests

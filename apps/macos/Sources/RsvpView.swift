@@ -3,11 +3,14 @@ import SwiftUI
 
 // ── Display token ────────────────────────────────────────────────────────────
 
+// DisplayToken, PacingEngine and skipWords are internal (not private) only so
+// the Tests/ target can reach them.
+
 /// A word token plus its precomputed ORP (Optimal Recognition Point) byte
 /// offset, so the word display can center each word around a fixed focal
 /// letter without an FFI round trip on every tick. ORP is computed once per
 /// token at load time via `orpIndex(word:)` — see contextgist-ffi.
-private struct DisplayToken {
+struct DisplayToken {
     let text: String
     let kind: FfiTokenKind
     /// Byte offset of the ORP character; meaningless for non-word tokens.
@@ -45,7 +48,7 @@ private struct DisplayToken {
 // a per-tick FFI call: recomputes which token should be showing from actual
 // elapsed time on every tick, so a late/coalesced wake self-corrects instead
 // of drifting. Keep in sync with gist-rsvp if pacing rules change there.
-private struct PacingEngine {
+struct PacingEngine {
     private(set) var cursor: Int
     private(set) var resumeDate: Date?
 
@@ -164,7 +167,7 @@ private struct PacingEngine {
 /// `direction` (-1 = backward, +1 = forward). Mirrors
 /// `gist_rsvp::RsvpSession::back_words`, extended with a symmetric forward
 /// jump for the "fast-forward" control.
-private func skipWords(tokens: [DisplayToken], from: Int, by n: Int, direction: Int) -> Int {
+func skipWords(tokens: [DisplayToken], from: Int, by n: Int, direction: Int) -> Int {
     var target = from
     var skipped = 0
     while skipped < n {
