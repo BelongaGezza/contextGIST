@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual run, e.g. to check the `upstream` job right after a GIST change.
+  workflow_dispatch:
   schedule:
     # Weekly, so new RUSTSEC advisories surface without needing a commit.
     - cron: "0 6 * * 1"
@@ -47,6 +49,26 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25  # v2.1.1
         with:
           arguments: --exclude-dev
+
+  # Has GIST moved since UPSTREAM_BASELINE? Fails (and prints the full review
+  # report) when watched GIST paths changed and haven't been reviewed with
+  # tools/upstream-review.sh --record. Scheduled/manual only: a red check on
+  # every push or PR because of an unrelated GIST commit would block work that
+  # has nothing to do with it; the weekly run is the nudge instead.
+  upstream:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # The script's offline --check mode compares against this clone.
+      - name: Clone GIST
+        run: git clone --quiet https://github.com/BelongaGezza/gist.git .upstream/gist
+      - name: Upstream review check
+        run: |
+          if ! tools/upstream-review.sh --check --strict; then
+            tools/upstream-review.sh
+            exit 1
+          fi
 
   # The app itself: Debug build, no code signing (signing/notarization is
   # tools/release-sign.sh's job and needs secrets this workflow doesn't have).
