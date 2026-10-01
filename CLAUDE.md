@@ -10,7 +10,7 @@ floating popup shows that text RSVP-style (one word at a time, paced) with
 play/pause/rewind/fast-forward/speed controls. On close, the text is
 discarded — no library, no persistence, no accounts.
 
-It is a narrow reuse of [GIST](~/develop/reader)'s RSVP pacing engine and
+It lives at <https://github.com/BelongaGezza/contextGIST>. It is a narrow reuse of [GIST](https://github.com/BelongaGezza/gist) (local clone: `~/develop/reader`)'s RSVP pacing engine and
 tokenizer, not a fork of its git history. See
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the full design and
 **read it before touching `crates/contextgist-ffi` or
@@ -36,7 +36,9 @@ disclosures, so keep them true when the code changes.
 — not a vendored copy, not a git fork. This means:
 
 - **`~/develop/reader` must exist on disk** at that relative path for this
-  workspace to build at all.
+  workspace to build at all. It is a clone of [https://github.com/BelongaGezza/gist](https://github.com/BelongaGezza/gist); on a fresh
+  machine run `git clone git@github.com:BelongaGezza/gist.git ~/develop/reader`
+  (as a sibling of this repo).
 - Pacing/tokenization logic is never edited in this repo — if it needs to
   change, change it upstream in `~/develop/reader` and this workspace picks
   it up on the next build.

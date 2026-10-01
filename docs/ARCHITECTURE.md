@@ -10,8 +10,8 @@ time, at a controllable pace, with play/pause/rewind/fast-forward. When the
 popup closes, the text is gone. There is no library, no import flow, and no
 persistence of any kind.
 
-This is a deliberately narrow slice of [GIST](https://github.com/) (the
-full reader app, at `~/develop/reader`): its RSVP pacing engine and
+This is a deliberately narrow slice of [GIST](https://github.com/BelongaGezza/gist) (the
+full reader app, cloned locally at `~/develop/reader`): its RSVP pacing engine and
 tokenizer, with none of its library/storage/search/encryption machinery.
 
 ## Relationship to GIST

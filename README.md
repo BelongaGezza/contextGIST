@@ -9,7 +9,7 @@ play/pause/rewind/fast-forward/speed controls. Close the window and the
 text is gone — contextGIST has no library, no persistence, and no account
 system.
 
-This is a narrow fork of [GIST](../reader)'s core reading experience: its
+This is a narrow fork of [GIST](https://github.com/BelongaGezza/gist)'s core reading experience: its
 RSVP pacing engine and tokenizer, reused as-is, with none of GIST's
 library/storage/search/encryption machinery. See
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how the two projects
@@ -23,8 +23,9 @@ current state.
 ## Building
 
 Requirements: Rust (version pinned in `rust-toolchain.toml`), Xcode, and
-[XcodeGen](https://github.com/yonaskolb/XcodeGen). `~/develop/reader` (the
-GIST repo) must be present, since `crates/contextgist-ffi` depends on its
+[XcodeGen](https://github.com/yonaskolb/XcodeGen). A clone of the
+[GIST repo](https://github.com/BelongaGezza/gist) must sit next to this one at `~/develop/reader`
+(`git clone git@github.com:BelongaGezza/gist.git ../reader`), since `crates/contextgist-ffi` depends on its
 crates via relative path.
 
 ```bash

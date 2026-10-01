@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 license = "MIT"
+repository.workspace = true
 
 [lib]
 # staticlib only — apps/macos/project.yml links this in directly as a
