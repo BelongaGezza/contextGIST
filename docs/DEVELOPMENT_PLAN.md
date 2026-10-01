@@ -135,9 +135,11 @@ State at review: `main` == `origin/main`, tree clean, 13/13 Rust tests,
   and a Swift re-run. Runs in CI (`xcodebuild test`). Mutation-checked:
   dropping the `elapsedMs` rounding or a clause rule fails the suite. Not
   covered: rendering/`WordDisplay` layout, VoiceOver, the Services flow.
-- [ ] **Run `upstream-review.sh --check --strict` in CI** (currently only
-  listed under "Ongoing"; CI already runs weekly, so it would surface new
-  GIST commits without relying on a build warning).
+- [x] **Run `upstream-review.sh --check --strict` in CI** (done 2026-10-01):
+  the `upstream` job in `.github/workflows/ci.yml` clones GIST and runs it,
+  printing the full report on failure. Scheduled (weekly) and manual
+  (`workflow_dispatch`) only, not on push/PR, so an unrelated GIST commit
+  never turns a contextGIST PR red.
 - [ ] **Refresh `docs/SECURITY_REVIEW.md`** before any public distribution
   (it is a 2026-09-25 point-in-time review; re-check its findings against
   current code, including CI/workflow changes made since).
@@ -317,8 +319,7 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
   now `fb6946a`): when the
   build shows the upstream warning, or at the
   start of a work session, run the review, act on it, and `--record` it.
-  When Phase 1+ platforms or CI exist, run `upstream-review.sh --check
-  --strict` in CI too.
+  The weekly CI `upstream` job now does the check too.
 - [ ] Re-run a security review pass (informal is fine) at the end of each
   phase before that platform ships — this doc's Phase 0 review was cheap
   precisely because the codebase was still small; don't let five platforms'
