@@ -92,6 +92,7 @@ History of reviews:
 | 2026-09-30 | `24f4138` | `integration/m4-2026-09-28` (24 commits ahead of `origin/main` `75700c6`) | Upstream changes since the 2026-09-25 scaffold (`5ab99ab`) reviewed. Path-dep crates changed only additively (`gist-model::ParseError`, tests, a `gist-parse-txt` benchmark), with no pacing or tokenization change. Ported the `elapsedMs` rounding fix from GIST's `RsvpWallClockEngine` (GIST `6717ca5`). |
 | 2026-09-30 | `9dc537c` | `main` | First review under the new process (24f4138 to `9dc537c`, GIST `main`). Adopted: the #76 paragraph fix (filed from here; reviewed as `695fba1` on its branch, merged to `main` as PR #77 `9dc537c` with an identical tree) arrives via `gist-parse-txt`; `line_ending_styles` now expects a break for CRLF, CR, U+2029 and whitespace-only blank lines. No change: `fb33b2e` commits icon art byte-identical to `IconSource/`. Skipped: `4e391db` (GIST string catalog). #71 closed upstream; contextGIST already centres the ORP letter. |
 | 2026-10-01 | `fb6946a` | `origin/main` | Adopted GIST fb6946a (gist#79): orp_index counts grapheme clusters. Swift orpParts already works in Characters, no Swift change; added FFI cluster-boundary test. |
+| 2026-10-03 | `d5b2de7` | `origin/main` | Reviewed d5b2de7: no applicable changes (criterion dev-dep bump, imageprep/epub hardening, uniffi/thiserror/encoding_rs bumps, docs). Nothing ported. |
 
 See also `docs/SECURITY_REVIEW.md` finding #4.
 
