@@ -94,6 +94,7 @@ History of reviews:
 | 2026-10-01 | `fb6946a` | `origin/main` | Adopted GIST fb6946a (gist#79): orp_index counts grapheme clusters. Swift orpParts already works in Characters, no Swift change; added FFI cluster-boundary test. |
 | 2026-10-03 | `d5b2de7` | `origin/main` | Reviewed d5b2de7: no applicable changes (criterion dev-dep bump, imageprep/epub hardening, uniffi/thiserror/encoding_rs bumps, docs). Nothing ported. |
 | 2026-10-03 | `0293fee` | `origin/main` | Reviewed ddb53c7 (docs-only M3 checklist) and 0293fee (GIST toolchain bump 1.88.0 -> 1.99.0). No applicable changes; skipped — contextGIST's rust-toolchain.toml is pinned independently. |
+| 2026-10-10 | `9972dc4` | `origin/main` | Reviewed 0293fee..9972dc4: no applicable changes. New pause_on_punctuation config field (default true, FFI ignores it), 256-byte word-token cap, typed LimitKind on ParseError, table/PDF code unused here. Skipped GIST's switch to live FfiRsvpSession (we avoid per-tick FFI). Parity tests pass against new core. |
 
 See also `docs/SECURITY_REVIEW.md` finding #4.
 

@@ -11,7 +11,7 @@ no vendored SDKs.
 list ships inside the app as `Contents/Resources/ThirdPartyNotices.txt`.
 
 **Methodology:**
-- Regenerated 2026-10-03 from `Cargo.lock`: every crate reachable from
+- Regenerated 2026-10-10 from `Cargo.lock`: every crate reachable from
   `contextgist-ffi` via `cargo tree -e normal`, deduplicated, with each
   crate's declared licence from `cargo metadata`. 58 external crates.
 - uniffi's proc-macro crates only run at compile time and aren't part of
