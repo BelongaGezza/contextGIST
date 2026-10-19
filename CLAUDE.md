@@ -76,7 +76,8 @@ xcodebuild -scheme contextGIST build
 
 # Release packaging / disclosures
 ./tools/gen-third-party.sh                # regenerate docs/THIRD-PARTY.md + bundled notices after any Cargo.lock change
-./tools/build-dmg.sh <path/to/contextGIST.app> <out.dmg>   # unsigned DMG (Release = universal)
+./tools/package-macos.sh                  # Release build -> dist/macos/ (contextGIST.dmg + .app + INSTALL.txt; gitignored)
+./tools/build-dmg.sh <path/to/contextGIST.app> <out.dmg>   # unsigned DMG (Release = universal); includes tools/dmg/INSTALL.txt
 ./tools/release-sign.sh <path/to/contextGIST.app> <out.dmg> # sign + DMG + notarize (SIGN_IDENTITY, APPLE_* env; ad-hoc if unset)
 cargo deny --exclude-dev check            # licence/advisory/source policy (deny.toml); advisories need cargo-deny >= 0.20
 ./tools/gen-app-icon.sh [--refresh-source]   # regenerate apps/macos/AppIcon.icon from GIST's icon artwork

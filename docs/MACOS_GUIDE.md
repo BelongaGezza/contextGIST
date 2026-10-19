@@ -109,12 +109,16 @@ whenever the Services item fires.
 
 ### Optional: package a DMG
 
+`./tools/package-macos.sh` does all of this in one go and writes the result to
+`dist/macos/` (`contextGIST.dmg`, `contextGIST.app`, `INSTALL.txt`). To
+package an app you've already built:
+
 To hand the build to another Mac you control, package the Release app:
 ```bash
 ./tools/build-dmg.sh /Applications/contextGIST.app ~/Desktop/contextGIST.dmg
 ```
-The DMG holds the app, an `Applications` shortcut, and
-`Third-Party Notices.txt`. Release builds are universal (Apple silicon and
+The DMG holds the app, an `Applications` shortcut,
+`Install Instructions.txt` and `Third-Party Notices.txt`. Release builds are universal (Apple silicon and
 Intel). The DMG is **not notarized**, so Gatekeeper will block it on other
 machines until Developer ID signing and notarization exist
 (`docs/SECURITY_REVIEW.md` finding #3). Once they do, use

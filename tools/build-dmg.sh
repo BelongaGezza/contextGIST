@@ -13,6 +13,8 @@
 # without opening the bundle (contextGIST has no About/Settings screen to
 # show them from — see docs/THIRD-PARTY.md).
 #
+# It also adds tools/dmg/INSTALL.txt as "Install Instructions.txt".
+#
 # Release builds are universal (arm64 + x86_64). A Debug .app is host-arch
 # only, so package Release builds. For a signed build, use
 # tools/release-sign.sh, which signs first and then calls this script.
@@ -20,6 +22,7 @@
 # Usage: tools/build-dmg.sh <path-to.app> <output.dmg>
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_PATH="${1:?Usage: build-dmg.sh <path-to.app> <output.dmg>}"
 DMG_PATH="${2:?Usage: build-dmg.sh <path-to.app> <output.dmg>}"
 
@@ -52,6 +55,7 @@ ditto "$APP_PATH" "$STAGING_DIR/$(basename "$APP_PATH")"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 cp "$NOTICES" "$STAGING_DIR/Third-Party Notices.txt"
+cp "$SCRIPT_DIR/dmg/INSTALL.txt" "$STAGING_DIR/Install Instructions.txt"
 
 mkdir -p "$(dirname "$DMG_PATH")"
 rm -f "$DMG_PATH"

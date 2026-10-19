@@ -1,0 +1,36 @@
+contextGIST - install instructions (macOS 13 or later)
+=======================================================
+
+contextGIST adds "Speed Read with contextGIST" to the macOS Services menu.
+Select text in any app that supports Services, choose the item, and a small
+popup shows the text one word at a time. Close it and the text is discarded.
+
+INSTALL
+  1. Drag contextGIST.app onto the Applications shortcut in this window.
+  2. Eject this disk image.
+  3. This build is NOT signed or notarized yet, so Gatekeeper will block the
+     first launch. Either:
+       - open Terminal and run:
+           xattr -dr com.apple.quarantine /Applications/contextGIST.app
+       - or try to open the app once, then go to System Settings ->
+         Privacy & Security and click "Open Anyway".
+  4. Launch it once (double-click it in /Applications). Nothing visible
+     happens - it has no Dock icon or window - and it quits itself after
+     about 10 seconds. That registers the Services item.
+  5. Register it with the Services menu. In Terminal:
+       /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/contextGIST.app
+       /System/Library/CoreServices/pbs -flush
+     If the item still doesn't appear, log out and back in.
+
+USE
+  Select text -> right-click -> Services -> Speed Read with contextGIST.
+  To assign a keyboard shortcut: System Settings -> Keyboard -> Keyboard
+  Shortcuts... -> Services -> Text.
+
+REMOVE
+  Quit it if running, then drag /Applications/contextGIST.app to the Trash.
+  contextGIST stores nothing else on your Mac.
+
+More detail: docs/MACOS_GUIDE.md in the source repo,
+https://github.com/BelongaGezza/contextGIST
+Licence notices for bundled software: "Third-Party Notices.txt" in this window.
