@@ -17,7 +17,7 @@ relate, and [`CLAUDE.md`](./CLAUDE.md) for build/dev commands.
 
 ## Status
 
-Early scaffolding — not yet built and run end-to-end. See `CLAUDE.md` for
+Working on macOS (Services flow confirmed hands-on); builds are unsigned. See `CLAUDE.md` for
 current state.
 
 ## Building
@@ -36,6 +36,24 @@ cargo test --workspace
 cd apps/macos && xcodegen generate        # generate the Xcode project (never committed)
 xcodebuild -scheme contextGIST build
 ```
+
+## Repository layout
+
+```
+apps/macos/     Services-menu app (Swift/SwiftUI, XcodeGen project.yml)
+crates/         contextgist-ffi — Rust FFI over GIST's tokenizer/pacing crates
+dist/macos/     Compiled macOS build: contextGIST.dmg, contextGIST.app, INSTALL.txt (generated, gitignored)
+docs/           Architecture, macOS guide, privacy, security review, dev plan
+tools/          Build, packaging, signing and upstream-review scripts
+```
+
+## Compiled app (macOS)
+
+`./tools/package-macos.sh` builds a universal Release app and writes it to
+[`dist/macos/`](./dist/macos/README.md): `contextGIST.dmg` (with install
+instructions inside), `contextGIST.app` and `INSTALL.txt`. The build is
+unsigned, so follow the instructions in the DMG (or
+[`docs/MACOS_GUIDE.md`](./docs/MACOS_GUIDE.md)) to open it past Gatekeeper.
 
 ## License
 

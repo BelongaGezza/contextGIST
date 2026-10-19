@@ -10,3 +10,7 @@
 # macOS
 .DS_Store
 /.upstream/
+
+# Packaged macOS build output (tools/package-macos.sh) — keep the folder's README only
+/dist/macos/*
+!/dist/macos/README.md
