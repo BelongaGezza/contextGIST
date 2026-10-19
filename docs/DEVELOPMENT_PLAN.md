@@ -10,6 +10,9 @@ Read [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) first if you haven't —
 this plan assumes its framing (narrow reuse of GIST's Rust core, no
 persistence, one popup per invocation).
 
+> Working contract and per-platform TODO checklists for parallel
+> Windows/Linux/macOS work: [`PLATFORMS.md`](./PLATFORMS.md).
+
 ## Guiding constraint: don't hand-port the pacing engine a third time
 
 `PacingEngine` in `apps/macos/Sources/RsvpView.swift` is already a
