@@ -11,6 +11,6 @@
 .DS_Store
 /.upstream/
 
-# Packaged macOS build output (tools/package-macos.sh) — keep the folder's README only
-/dist/macos/*
-!/dist/macos/README.md
+# Packaged macOS build output (tools/package-macos.sh): the DMG, INSTALL.txt and
+# README are committed; the unpacked .app is not (it's inside the DMG)
+/dist/macos/contextGIST.app/
