@@ -96,6 +96,7 @@ History of reviews:
 | 2026-10-03 | `0293fee` | `origin/main` | Reviewed ddb53c7 (docs-only M3 checklist) and 0293fee (GIST toolchain bump 1.88.0 -> 1.99.0). No applicable changes; skipped — contextGIST's rust-toolchain.toml is pinned independently. |
 | 2026-10-10 | `9972dc4` | `origin/main` | Reviewed 0293fee..9972dc4: no applicable changes. New pause_on_punctuation config field (default true, FFI ignores it), 256-byte word-token cap, typed LimitKind on ParseError, table/PDF code unused here. Skipped GIST's switch to live FfiRsvpSession (we avoid per-tick FFI). Parity tests pass against new core. |
 | 2026-10-18 | `c6e74f3` | `origin/main` | Adopted c6e74f3: gist-parse-txt encoding detection (no-op for valid-UTF-8 selections), gist-model metadata additions; skipped Windows/Linux/Apple/library/web work. Tests 15/15, deny ok. |
+| 2026-10-19 | `5e25545` | `origin/main` | no applicable changes |
 
 See also `docs/SECURITY_REVIEW.md` finding #4.
 
