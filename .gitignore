@@ -14,3 +14,6 @@
 # Packaged macOS build output (tools/package-macos.sh): the DMG, INSTALL.txt and
 # README are committed; the unpacked .app is not (it's inside the DMG)
 /dist/macos/contextGIST.app/
+# Unpacked/intermediate build trees for other platforms; installers + INSTALL.txt are committed
+/dist/windows/*/
+/dist/linux/*/

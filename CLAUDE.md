@@ -18,6 +18,10 @@ tokenizer, not a fork of its git history. See
 behaviorally identical to specific code in GIST, and that
 file explains exactly what must stay in sync and why.
 
+Multi-platform layout, parallel-development rules and per-platform TODOs
+(Windows, Linux, macOS): [`docs/PLATFORMS.md`](./docs/PLATFORMS.md). Packaged
+builds live in `dist/<platform>/`.
+
 Also see [`docs/SECURITY_REVIEW.md`](./docs/SECURITY_REVIEW.md) (point-in-time
 manual review, 2026-09-25 — re-check its findings before any public
 distribution), [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md)
