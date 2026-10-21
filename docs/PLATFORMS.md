@@ -53,7 +53,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 - [ ] Desktop Rust shells (Windows, Linux) drive `gist_rsvp::RsvpSession`
   directly instead of porting `PacingEngine`; golden-test against `golden.json`
   (macOS keeps its Swift engine, guarded by the parity tests).
-- [ ] **Parity hardening (from `REVIEW_2026-10-21.md`):** Swift durations use
+- [ ] **Parity hardening (from `REVIEW_2026-10-21.md`; Rust side done in PR #6, Swift `Float` + adopting the extended golden pending a macOS session):** Swift durations use
   `Float` like Rust (Q-01); golden covers every integer WPM 100-1000, a
   non-default config, oversized tokens, `skip_words`, `set_wpm` and Unicode
   punctuation (T1-T7); the core applies the 256-byte token split (Q-02),
