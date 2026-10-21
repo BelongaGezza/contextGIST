@@ -10,6 +10,17 @@
 
 uniffi::setup_scaffolding!();
 
+// `contain` relies on `catch_unwind`, which does nothing under `panic = "abort"`
+// (the panic would then abort the process and write a crash report that can
+// contain the selection). Fail the build instead of silently losing that.
+#[cfg(panic = "abort")]
+compile_error!("contextgist-ffi requires panic = \"unwind\" (see `contain`)");
+
+/// Largest selection (UTF-8 bytes) `tokenize` accepts; larger input yields no
+/// tokens. Same limit the macOS shell enforces (`maxSelectionBytes`), enforced
+/// here too so every platform shell inherits it.
+pub const MAX_SELECTION_BYTES: usize = 512 * 1024;
+
 // ── Panic containment ────────────────────────────────────────────────────────
 
 /// Runs `f`, turning a panic into `fallback` instead of letting it reach
@@ -69,25 +80,82 @@ impl From<gist_model::Token> for FfiToken {
     }
 }
 
-/// Tokenize raw selected text exactly as GIST's plain-text importer would
+/// Tokenize `text` with the upstream crates, without panic containment.
+///
+/// - Input over [`MAX_SELECTION_BYTES`] yields no tokens (checked before any
+///   parsing).
+/// - Parsed as UTF-8 only. `Auto` encoding detection would reinterpret a
+///   NUL-heavy selection as UTF-16 and show different text than was selected.
+///   (A leading U+FEFF is dropped, as for a BOM.)
+/// - Word tokens over `gist_rsvp::MAX_TOKEN_BYTES` (256) are split exactly as
+///   `RsvpSession::new` splits them, so every shell sees the same token
+///   indices that `RsvpSession` uses.
+fn tokenize_inner(text: &str) -> Vec<gist_model::Token> {
+    if text.len() > MAX_SELECTION_BYTES {
+        return Vec::new();
+    }
+    let limits = gist_model::ParseLimits {
+        max_bytes: MAX_SELECTION_BYTES,
+        ..gist_model::ParseLimits::default()
+    };
+    match gist_parse_txt::parse_with_encoding(
+        text.as_bytes(),
+        "selection",
+        &limits,
+        gist_parse_txt::EncodingChoice::Named("utf-8"),
+    ) {
+        Ok(parsed) => {
+            gist_rsvp::RsvpSession::new(parsed.document.token_stream, gist_rsvp::Config::default())
+                .tokens
+        }
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Tokenize raw selected text as GIST's plain-text importer would
 /// (blank-line-separated paragraphs, whitespace-split words — see
 /// `gist_parse_txt::parse` and `Document::build_token_stream` in
-/// github.com/BelongaGezza/gist). Never fails: a selection that somehow blows past
-/// `ParseLimits::default()` (256 MB) just yields no tokens rather than
-/// erroring the popup out — that ceiling is unreachable for a real text
-/// selection, so surfacing it as a user-facing error isn't worth the API
-/// surface. The Swift side caps selections far below that anyway (see
-/// `AppServiceProvider.maxSelectionBytes`). A panic also yields no tokens
-/// (see `contain`).
+/// github.com/BelongaGezza/gist), UTF-8 only, capped at
+/// [`MAX_SELECTION_BYTES`], with over-long words split (see
+/// `tokenize_inner`). Never fails: anything rejected yields no tokens rather
+/// than erroring the popup out. A panic also yields no tokens (see
+/// `contain`).
 #[uniffi::export]
 pub fn tokenize(text: String) -> Vec<FfiToken> {
     contain(Vec::new(), move || {
-        let limits = gist_model::ParseLimits::default();
-        match gist_parse_txt::parse(text.as_bytes(), "selection", &limits) {
-            Ok(doc) => doc.token_stream.into_iter().map(FfiToken::from).collect(),
-            Err(_) => Vec::new(),
-        }
+        tokenize_inner(&text)
+            .into_iter()
+            .map(FfiToken::from)
+            .collect()
     })
+}
+
+/// Index of the token `n` *words* away from `from` in direction `forward`
+/// (paragraph/section breaks are stepped over but not counted), clamped to
+/// the token range. Mirrors `gist_rsvp::RsvpSession::back_words` and the
+/// Swift `skipWords` (which adds the forward direction).
+pub fn skip_words(tokens: &[gist_model::Token], from: usize, n: usize, forward: bool) -> usize {
+    let last = tokens.len().saturating_sub(1);
+    let mut target = from.min(last);
+    let mut skipped = 0;
+    while skipped < n {
+        let next = if forward {
+            if target >= last {
+                break;
+            }
+            target + 1
+        } else {
+            if target == 0 {
+                break;
+            }
+            target - 1
+        };
+        target = next;
+        if tokens[target].kind == gist_model::TokenKind::Word {
+            skipped += 1;
+        }
+    }
+    target
 }
 
 // ── Pacing config ────────────────────────────────────────────────────────────
@@ -181,13 +249,11 @@ mod tests {
     // each word's ORP offset is a char boundary inside the word
     // (`DisplayToken.orpParts` converts it with `samePosition(in:)`).
 
-    /// Tokenizes `text` via the upstream crates exactly as `tokenize` does,
+    /// Tokenizes `text` exactly as `tokenize` does (shared `tokenize_inner`),
     /// without panic containment, and checks per-token invariants.
     fn tokenize_checked(text: &str) -> Vec<gist_model::Token> {
-        let limits = gist_model::ParseLimits::default();
-        let doc = gist_parse_txt::parse(text.as_bytes(), "selection", &limits)
-            .expect("valid UTF-8 under the size limit must parse");
-        for t in &doc.token_stream {
+        let tokens = tokenize_inner(text);
+        for t in &tokens {
             match t.kind {
                 gist_model::TokenKind::Word => {
                     assert!(!t.text.is_empty(), "empty word token from {text:?}");
@@ -211,7 +277,7 @@ mod tests {
                 _ => assert!(t.text.is_empty()),
             }
         }
-        doc.token_stream
+        tokens
     }
 
     fn words(tokens: &[gist_model::Token]) -> Vec<&str> {
@@ -224,13 +290,133 @@ mod tests {
 
     #[test]
     fn very_long_word_without_whitespace() {
-        let word = "a".repeat(512 * 1024);
+        // A 512 KiB word is split into <=256-byte chunks (as RsvpSession does)
+        // that concatenate back to the original.
+        let word = "a".repeat(MAX_SELECTION_BYTES);
         let tokens = tokenize_checked(&word);
-        assert_eq!(words(&tokens), vec![word.as_str()]);
+        let chunks = words(&tokens);
+        assert!(chunks.iter().all(|c| c.len() <= gist_rsvp::MAX_TOKEN_BYTES));
+        assert_eq!(chunks.concat(), word);
 
         // Multi-byte chars only, so every byte offset but a few is mid-char.
         let word = "é".repeat(100_000);
-        assert_eq!(words(&tokenize_checked(&word)).len(), 1);
+        let tokens = tokenize_checked(&word);
+        let chunks = words(&tokens);
+        assert!(chunks.len() > 1);
+        assert!(chunks.iter().all(|c| c.len() <= gist_rsvp::MAX_TOKEN_BYTES));
+        assert_eq!(chunks.concat(), word);
+    }
+
+    #[test]
+    fn oversized_words_are_split_like_rsvp_session() {
+        let cases = [
+            "x".repeat(300),
+            "é".repeat(200),
+            // combining-mark run: one grapheme cluster far over the limit
+            format!("e{}", "\u{0301}".repeat(400)),
+            "👍🏽".repeat(40),
+            "🇬🇧".repeat(40),
+        ];
+        for word in cases {
+            let tokens = tokenize_checked(&word);
+            let chunks = words(&tokens);
+            assert!(chunks.len() > 1, "{:.20?} not split", word);
+            assert!(chunks.iter().all(|c| c.len() <= gist_rsvp::MAX_TOKEN_BYTES));
+            assert_eq!(chunks.concat(), word);
+            // Same tokens RsvpSession would use.
+            let via_session = gist_rsvp::RsvpSession::new(
+                gist_parse_txt::parse(word.as_bytes(), "t", &gist_model::ParseLimits::default())
+                    .unwrap()
+                    .token_stream,
+                gist_rsvp::Config::default(),
+            );
+            assert_eq!(format!("{tokens:?}"), format!("{:?}", via_session.tokens));
+        }
+    }
+
+    #[test]
+    fn selection_over_the_cap_yields_no_tokens() {
+        let at_cap = "word ".repeat(MAX_SELECTION_BYTES / 5);
+        assert!(at_cap.len() <= MAX_SELECTION_BYTES);
+        assert!(!tokenize(at_cap).is_empty());
+        let over = "a".repeat(MAX_SELECTION_BYTES + 1);
+        assert!(tokenize(over).is_empty());
+        assert!(tokenize("word ".repeat(120_000)).is_empty()); // 600 KB
+    }
+
+    #[test]
+    fn selection_is_parsed_as_utf8_not_sniffed_as_utf16() {
+        // NUL-interleaved text would be auto-detected as UTF-16 and shown as
+        // "abcdefgh"; as UTF-8 each NUL stays inside its word.
+        let nul_interleaved = "a\0b\0c\0d\0e\0f\0g\0h\0";
+        let tokens = tokenize(nul_interleaved.to_string());
+        let text: String = tokens.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(text, nul_interleaved);
+        assert!(!tokens.iter().any(|t| t.text == "abcdefgh"));
+    }
+
+    #[test]
+    fn leading_bom_is_dropped_and_not_a_word() {
+        let tokens = tokenize("\u{FEFF}hello world".to_string());
+        let w: Vec<&str> = tokens.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(w, vec!["hello", "world"]);
+    }
+
+    #[test]
+    fn tokenize_words_match_split_whitespace_for_plain_text() {
+        let text = "alpha  beta\tgamma\r\ndelta\n\nepsilon  zeta\u{00A0}eta";
+        let tokens = tokenize(text.to_string());
+        let got: Vec<&str> = tokens
+            .iter()
+            .filter(|t| t.kind == FfiTokenKind::Word)
+            .map(|t| t.text.as_str())
+            .collect();
+        assert_eq!(got, text.split_whitespace().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn skip_words_backward_matches_rsvp_session_back_words() {
+        let tokens = tokenize_checked(GOLDEN_TEXT);
+        let cfg = gist_rsvp::Config::default();
+        for cursor in 0..tokens.len() {
+            for n in [0usize, 1, 2, 5, 50, 10_000] {
+                let mut session = gist_rsvp::RsvpSession::new(tokens.clone(), cfg.clone());
+                session.cursor = cursor;
+                session.back_words(n, 0); // elapsed 0: current token == cursor
+                assert_eq!(
+                    skip_words(&tokens, cursor, n, false),
+                    session.cursor,
+                    "cursor {cursor}, n {n}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skip_words_clamps_and_steps_over_breaks() {
+        let tokens = tokenize_checked("one two\n\nthree four");
+        // tokens: one two <break> three four
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(skip_words(&tokens, 0, 0, true), 0);
+        assert_eq!(skip_words(&tokens, 0, 2, true), 3); // one -> two -> (break) three
+        assert_eq!(skip_words(&tokens, 0, 99, true), 4);
+        assert_eq!(skip_words(&tokens, 4, 1, true), 4);
+        assert_eq!(skip_words(&tokens, 0, 1, false), 0);
+        assert_eq!(skip_words(&tokens, 4, 99, false), 0);
+        assert_eq!(skip_words(&[], 0, 3, true), 0);
+        assert_eq!(skip_words(&tokens, 99, 1, false), 3); // `from` clamped to last
+    }
+
+    #[test]
+    fn default_config_matches_gist_rsvp_on_every_field() {
+        let c = default_config();
+        let g = gist_rsvp::Config::default();
+        assert_eq!(c.wpm, g.wpm);
+        assert_eq!(c.pause_sentence, g.pause_sentence);
+        assert_eq!(c.pause_comma, g.pause_comma);
+        assert_eq!(c.pause_paragraph, g.pause_paragraph);
+        assert_eq!(c.pause_numeral, g.pause_numeral);
+        assert_eq!(c.chunk_size as usize, g.chunk_size);
     }
 
     #[test]
@@ -427,12 +613,18 @@ mod tests {
         for wpm in GOLDEN_WPMS {
             let mut session = gist_rsvp::RsvpSession::new(
                 tokens.clone(),
-                gist_rsvp::Config { wpm, ..gist_rsvp::Config::default() },
+                gist_rsvp::Config {
+                    wpm,
+                    ..gist_rsvp::Config::default()
+                },
             );
             let durs: Vec<String> = (0..tokens.len())
                 .map(|i| session.token_duration_ms(i).to_string())
                 .collect();
-            drows.push(format!("    {{\"wpm\": {wpm}, \"ms\": [{}]}}", durs.join(", ")));
+            drows.push(format!(
+                "    {{\"wpm\": {wpm}, \"ms\": [{}]}}",
+                durs.join(", ")
+            ));
             for cursor in [0, 3, tokens.len() / 2, tokens.len() - 1] {
                 session.cursor = cursor;
                 let idx: Vec<String> = GOLDEN_ELAPSED
@@ -456,7 +648,10 @@ mod tests {
 
     #[test]
     fn golden_file_matches_gist_rsvp() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/macos/Tests/golden.json");
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/macos/Tests/golden.json"
+        );
         let fresh = golden_json();
         if std::env::var_os("UPDATE_GOLDEN").is_some() {
             std::fs::write(path, &fresh).expect("write golden.json");
@@ -469,6 +664,183 @@ mod tests {
             "apps/macos/Tests/golden.json is stale vs gist-rsvp; regenerate with \
              UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden, then run the Swift tests"
         );
+    }
+
+    // ── Extended golden data (Rust-only for now) ────────────────────────────
+    //
+    // `crates/contextgist-ffi/testdata/golden_extended.json` extends the macOS
+    // golden file with what the review of 2026-10-21 found it could not see
+    // (docs/REVIEW_2026-10-21.md Q-01, Q-02, T1–T7): durations for EVERY
+    // integer WPM 100..=1000 under two pacing configs (the Swift `Double`
+    // multiply differs from Rust's `f32` at some WPMs for the 1.3 clause pause),
+    // Unicode-punctuation tokens, oversized-word chunking, `skip_words` and
+    // `set_wpm` results. The Swift tests do not read this file yet: adopting it
+    // needs a macOS session (CLAUDE.md §7, PENDING_APPLE_CHANGES.md). Windows
+    // and Linux shells should check against it from day one.
+    // Regenerate: UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden
+
+    const EXT_TEXT: &str = "plain end. comma, 3.14 ok? \"q.\" 1,000. a:b\n\nnext \
+        x.\u{0301} x!\u{FE0F} x,\u{200D} done";
+
+    fn ext_kind(t: &gist_model::Token) -> &'static str {
+        match t.kind {
+            gist_model::TokenKind::Word => "word",
+            gist_model::TokenKind::ParagraphBreak => "paragraphBreak",
+            gist_model::TokenKind::SectionBreak => "sectionBreak",
+        }
+    }
+
+    fn extended_golden_json() -> String {
+        let tokens = tokenize_checked(EXT_TEXT);
+        let mut o = String::from("{\n");
+        o.push_str(&format!("  \"text\": {},\n", json_str(EXT_TEXT)));
+        o.push_str("  \"tokens\": [\n");
+        let rows: Vec<String> = tokens
+            .iter()
+            .map(|t| {
+                format!(
+                    "    {{\"text\": {}, \"kind\": \"{}\"}}",
+                    json_str(&t.text),
+                    ext_kind(t)
+                )
+            })
+            .collect();
+        o.push_str(&rows.join(",\n"));
+        o.push_str("\n  ],\n  \"configs\": [\n");
+
+        let configs = [
+            ("default", gist_rsvp::Config::default()),
+            (
+                "custom",
+                gist_rsvp::Config {
+                    pause_sentence: 2.5,
+                    pause_comma: 1.3,
+                    pause_paragraph: 3.0,
+                    pause_numeral: 2.0,
+                    ..gist_rsvp::Config::default()
+                },
+            ),
+        ];
+        let mut cfg_rows = Vec::new();
+        for (name, cfg) in &configs {
+            let mut wpm_rows = Vec::new();
+            for wpm in 100u32..=1000 {
+                let session = gist_rsvp::RsvpSession::new(
+                    tokens.clone(),
+                    gist_rsvp::Config { wpm, ..cfg.clone() },
+                );
+                let ms: Vec<String> = (0..session.tokens.len())
+                    .map(|i| session.token_duration_ms(i).to_string())
+                    .collect();
+                wpm_rows.push(format!("      [{wpm}, [{}]]", ms.join(", ")));
+            }
+            cfg_rows.push(format!(
+                "    {{\"name\": \"{name}\", \"pauseSentence\": {}, \"pauseComma\": {}, \"pauseParagraph\": {}, \"pauseNumeral\": {}, \"durations\": [\n{}\n    ]}}",
+                cfg.pause_sentence,
+                cfg.pause_comma,
+                cfg.pause_paragraph,
+                cfg.pause_numeral,
+                wpm_rows.join(",\n")
+            ));
+        }
+        o.push_str(&cfg_rows.join(",\n"));
+
+        // Oversized-word chunking: byte length of every chunk.
+        o.push_str("\n  ],\n  \"oversized\": [\n");
+        let cases = [
+            ("ascii300", "x".repeat(300)),
+            ("e-acute200", "é".repeat(200)),
+            ("combining-run", format!("e{}", "\u{0301}".repeat(400))),
+            ("thumbs40", "👍🏽".repeat(40)),
+            ("flags40", "🇬🇧".repeat(40)),
+        ];
+        let rows: Vec<String> = cases
+            .iter()
+            .map(|(label, word)| {
+                let toks = tokenize_checked(word);
+                let lens: Vec<String> = toks.iter().map(|t| t.text.len().to_string()).collect();
+                format!(
+                    "    {{\"label\": \"{label}\", \"inputBytes\": {}, \"chunkBytes\": [{}]}}",
+                    word.len(),
+                    lens.join(", ")
+                )
+            })
+            .collect();
+        o.push_str(&rows.join(",\n"));
+
+        // skip_words: every start index, a spread of n, both directions.
+        o.push_str("\n  ],\n  \"skip\": [\n");
+        let mut rows = Vec::new();
+        for from in 0..tokens.len() {
+            for n in [0usize, 1, 2, 5, 99] {
+                for forward in [false, true] {
+                    rows.push(format!(
+                        "    {{\"from\": {from}, \"n\": {n}, \"direction\": {}, \"to\": {}}}",
+                        if forward { 1 } else { -1 },
+                        skip_words(&tokens, from, n, forward)
+                    ));
+                }
+            }
+        }
+        o.push_str(&rows.join(",\n"));
+
+        // set_wpm mid-play: resulting cursor and clamped WPM.
+        o.push_str("\n  ],\n  \"setWpm\": [\n");
+        let mut rows = Vec::new();
+        for cursor in [0usize, 3, 7] {
+            for elapsed in [0u64, 1, 150, 400, 5000, 1_000_000] {
+                for new_wpm in [50u32, 100, 250, 1000, 5000] {
+                    let mut session =
+                        gist_rsvp::RsvpSession::new(tokens.clone(), gist_rsvp::Config::default());
+                    session.cursor = cursor;
+                    session.set_wpm(new_wpm, elapsed);
+                    rows.push(format!(
+                        "    {{\"cursor\": {cursor}, \"elapsedMs\": {elapsed}, \"newWpm\": {new_wpm}, \"resultCursor\": {}, \"resultWpm\": {}}}",
+                        session.cursor, session.config.wpm
+                    ));
+                }
+            }
+        }
+        o.push_str(&rows.join(",\n"));
+        o.push_str("\n  ]\n}\n");
+        o
+    }
+
+    #[test]
+    fn extended_golden_file_matches_gist_rsvp() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/golden_extended.json");
+        let fresh = extended_golden_json();
+        if std::env::var_os("UPDATE_GOLDEN").is_some() {
+            std::fs::create_dir_all(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata"))
+                .expect("create testdata dir");
+            std::fs::write(path, &fresh).expect("write golden_extended.json");
+            return;
+        }
+        let committed = std::fs::read_to_string(path).expect(
+            "testdata/golden_extended.json missing; run UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden",
+        );
+        assert!(
+            committed == fresh,
+            "testdata/golden_extended.json is stale vs gist-rsvp; regenerate with \
+             UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden"
+        );
+    }
+
+    /// The one rounding case the review found: with `f32` arithmetic a 1.3x
+    /// clause pause at 110 WPM is 709 ms; a `Double` multiply gives 708.
+    #[test]
+    fn clause_pause_rounds_in_f32_not_f64() {
+        let tokens = tokenize_checked("a, b");
+        let session = gist_rsvp::RsvpSession::new(
+            tokens,
+            gist_rsvp::Config {
+                wpm: 110,
+                ..gist_rsvp::Config::default()
+            },
+        );
+        assert_eq!(session.token_duration_ms(0), 709);
+        let base = 60_000u64 / 110;
+        assert_eq!((base as f64 * f64::from(1.3f32)).round() as u64, 708);
     }
 
     /// Deterministic pseudo-fuzz over a pool of awkward characters. No
