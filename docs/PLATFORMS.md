@@ -48,7 +48,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 - [ ] Extract `crates/contextgist-core`: plain Rust (no uniffi) exposing
   `tokenize`, `default_config`, `orp_index`; make `contextgist-ffi` a thin uniffi
-  wrapper over it. Tauri (Windows/Linux) depends on it directly.
+  wrapper over it. The Windows/Linux Rust shells depend on it directly.
 - [ ] Port the wall-clock `PacingEngine` to Rust once in the core, tested against
   `apps/macos/Tests/golden.json`, so desktop shells don't each re-port it
   (macOS may keep its Swift engine, guarded by the existing parity tests).
@@ -64,19 +64,30 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 ## TODO: Windows 11
 
-- [ ] Scaffold `apps/windows` (Tauri) depending on `contextgist-core`; popup with
-  play/pause/rewind/fast-forward/speed, ORP-centred word, matching macOS behaviour.
-- [ ] Entry point: Windows Share Target registration (primary).
-- [ ] Entry point fallback: global hotkey sending Ctrl+C. Decide whether to ship;
-  if so, restore the prior clipboard and disclose the overwrite in the UI.
-- [ ] Reject oversized selections (macOS limit is 512 KiB) and discard text on close.
-- [ ] Golden parity tests against `apps/macos/Tests/golden.json`.
-- [ ] MSIX packaging with minimal capabilities (no network, no filesystem);
-  write `tools/package-windows.ps1` to populate `dist/windows/`.
-- [ ] Code-signing certificate; Microsoft Store submission.
-- [ ] `dist/windows/INSTALL.txt` (including SmartScreen steps while unsigned).
-- [ ] Add Windows to `docs/PRIVACY.md`, `docs/THIRD-PARTY.md` and a security-baseline pass.
-- [ ] Windows section in the README and a `docs/WINDOWS_GUIDE.md`.
+Full rationale, phases and exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
+
+- [ ] **W0** `.gitattributes` (LF for `*.json`/`*.sh`) so `golden_file_matches_gist_rsvp`
+  passes on Windows checkouts; Windows target handling in `rust-toolchain.toml`.
+- [ ] **W0** `windows-latest` CI job (build, tests, clippy, `cargo deny`), path-filtered.
+- [ ] **W1** Time-boxed shell spike (native Rust UI vs Tauri): ORP jitter at
+  1000 WPM, Narrator, focus behaviour, toolkit licence vs `deny.toml`.
+  Record the decision in `ARCHITECTURE.md`.
+- [ ] **W2** Drive `gist_rsvp::RsvpSession` directly (no hand-ported engine);
+  parity test against `golden.json` plus rewind/fast-forward/speed semantics test.
+- [ ] **W3** Scaffold `apps/windows`: tray-resident, single instance,
+  `RegisterHotKey`, popup with play/pause/rewind/fast-forward/speed, ORP-centred word.
+- [ ] **W3** Capture: UI Automation `TextPattern` first; manual paste floor;
+  clear errors for elevated windows (UIPI). Reject selections over 512 KiB; discard text on close.
+- [ ] **W4** Opt-in Ctrl+C capture with full-format clipboard restore and
+  history/cloud exclusion formats; disclosed in the UI and `PRIVACY.md`.
+- [ ] **W4** Share Target (`Text` only) via MSIX; start-at-login as opt-in.
+- [ ] **W5** `tools/package-windows.ps1`: full-trust MSIX, x64 + ARM64, minimal
+  capabilities; populate `dist/windows/`; `INSTALL.txt` (SmartScreen steps while unsigned).
+- [ ] **W5** Add Windows to `docs/PRIVACY.md` (resident process, not sandboxed,
+  clipboard behaviour, WER dumps), `docs/THIRD-PARTY.md`, refresh `SECURITY_REVIEW.md`;
+  README section and `docs/WINDOWS_GUIDE.md`.
+- [ ] **W6** Code signing route decided; Microsoft Store submission; tag `windows-vX.Y.Z`.
+- [ ] `// TODO(test): verify on [PLATFORM: Windows/ARM64]` for ARM64 and clean-VM install runs.
 
 ## TODO: Linux
 
