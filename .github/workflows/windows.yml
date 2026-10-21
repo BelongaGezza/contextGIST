@@ -1,0 +1,61 @@
+name: windows
+# Windows 11 / MSVC build + tests. A separate workflow (not a job in ci.yml) so
+# the path filter below keeps macOS-only changes from running it, and so the
+# Windows lane never edits the macOS one (docs/PLATFORMS.md, rule 1). Anything
+# under crates/ or the golden file runs both, which is the intended gate for
+# shared-core changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "apps/windows/**"
+      - "apps/macos/Tests/golden.json"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "deny.toml"
+      - ".gitattributes"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "crates/**"
+      - "apps/windows/**"
+      - "apps/macos/Tests/golden.json"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "deny.toml"
+      - ".gitattributes"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # rust-toolchain.toml pins the channel; rustup installs it on first use.
+      - run: rustup show active-toolchain
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-rust-
+      # windows-latest checks out with core.autocrlf=true; .gitattributes must
+      # keep golden.json at LF or golden_file_matches_gist_rsvp fails.
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --locked --all-targets -- -D warnings
