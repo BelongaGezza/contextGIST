@@ -9,7 +9,7 @@ play/pause/rewind/fast-forward/speed controls. Close the window and the
 text is gone — contextGIST has no library, no persistence, and no account
 system.
 
-This is a narrow fork of [GIST](https://github.com/BelongaGezza/gist)'s core reading experience: its
+This is a narrow reuse of [GIST](https://github.com/BelongaGezza/gist)'s core reading experience: its
 RSVP pacing engine and tokenizer, reused as-is, with none of GIST's
 library/storage/search/encryption machinery. See
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for how the two projects
