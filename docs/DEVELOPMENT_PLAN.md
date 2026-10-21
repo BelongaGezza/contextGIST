@@ -248,21 +248,22 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
 ## Phase 4 — Windows 11
 
 **Superseded by [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md)** (architecture review,
-2026-10-21). Summary of what changed from the earlier draft:
+2026-10-21, revised after an independent adversarial review). Summary:
 
-- **Shell:** native Rust UI driving `gist_rsvp::RsvpSession` directly
-  (no pacing port at all), decided by a short spike; Tauri is the fallback,
-  not the default (it would force a JS pacing hand-port and adds WebView2 and
-  an npm supply chain).
-- **Entry point:** a tray-resident app with one global hotkey (`RegisterHotKey`
-  only). Capture order: UI Automation `TextPattern` (no clipboard) → Share
-  Target (secondary; Share is source-initiated, so few apps offer selected
-  text) → opt-in Ctrl+C with clipboard restore and history/cloud exclusion
-  formats → manual paste.
-- **Packaging:** full-trust MSIX (`runFullTrust` only). "Sandboxed" from the
-  security baseline cannot be matched and is disclosed, not claimed.
-- **Blockers found on Windows:** golden test fails under `core.autocrlf=true`
-  (needs `.gitattributes`); `rust-toolchain.toml` lists only Apple targets.
+- **Gates first:** a capture-reliability spike (UI Automation hit rate across
+  ~15 apps, numeric go/no-go), then a three-way shell spike that starts from
+  GIST's existing WinUI 3 + uniffi-cs Windows stack versus native Rust UI
+  versus a minimal Win32 window. Tauri is rejected (forces a JS pacing port).
+- **Pacing:** no pacing math is hand-ported; `gist_rsvp::RsvpSession` is used,
+  plus one shared `skip_words` helper in `contextgist-core`.
+- **v1 scope:** global hotkey (`RegisterHotKey` only), UI Automation capture
+  with password-field refusal and a 512 KiB cap, manual paste fallback, x64,
+  direct download. Share Target, opt-in Ctrl+C, ARM64, MSIX/Store and
+  start-at-login are post-v1.
+- **Process model** (launcher-per-invocation vs resident) is decided before
+  code, because a resident process changes the privacy promises.
+- **Security baseline:** "sandboxed" cannot be matched (full-trust); disclosed,
+  not claimed.
 
 ## Phase 5 — Linux
 

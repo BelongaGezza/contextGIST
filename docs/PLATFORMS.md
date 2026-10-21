@@ -28,7 +28,8 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
    via PR with that platform's CI job green. Tag releases per platform:
    `macos-vX.Y.Z`, `windows-vX.Y.Z`, `linux-vX.Y.Z`. A release of one platform
    never waits on another.
-4. **Upstream review is shared.** `tools/upstream-review.sh --record` moves the
+4. **Upstream review is shared.** Until `tools/upstream-review.sh` is made
+   portable (it uses BSD `sed -i ''`), only macOS can run `--record`. `tools/upstream-review.sh --record` moves the
    one GIST pin for every platform; run the other platforms' tests before
    recording it.
 5. **Disclosures stay true per platform.** `docs/PRIVACY.md` and
@@ -64,37 +65,32 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 ## TODO: Windows 11
 
-Full rationale, phases and exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
+Rationale, phases and numeric exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
+v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
 
-- [ ] **W0** `.gitattributes` (LF for `*.json`/`*.sh`) so `golden_file_matches_gist_rsvp`
-  passes on Windows checkouts; Windows target handling in `rust-toolchain.toml`.
-- [ ] **W0** `windows-latest` CI job (build, tests, clippy, `cargo deny`), path-filtered.
-- [ ] **W1** Time-boxed shell spike (native Rust UI vs Tauri): ORP jitter at
-  1000 WPM, Narrator, focus behaviour, toolkit licence vs `deny.toml`.
-  Record the decision in `ARCHITECTURE.md`.
-- [ ] **W2** Drive `gist_rsvp::RsvpSession` directly (no hand-ported engine);
-  parity test against `golden.json` plus rewind/fast-forward/speed semantics test.
-- [ ] **W3** Scaffold `apps/windows`: tray-resident, single instance,
-  `RegisterHotKey`, popup with play/pause/rewind/fast-forward/speed, ORP-centred word.
-- [ ] **W3** Capture: UI Automation `TextPattern` first; manual paste floor;
-  clear errors for elevated windows (UIPI). Reject selections over 512 KiB; discard text on close.
-- [ ] **W4** Opt-in Ctrl+C capture with full-format clipboard restore and
-  history/cloud exclusion formats; disclosed in the UI and `PRIVACY.md`.
-- [ ] **W4** Share Target (`Text` only) via MSIX; start-at-login as opt-in.
-- [ ] **W5** `tools/package-windows.ps1`: full-trust MSIX, x64 + ARM64, minimal
-  capabilities; populate `dist/windows/`; `INSTALL.txt` (SmartScreen steps while unsigned).
-- [ ] **W5** Add Windows to `docs/PRIVACY.md` (resident process, not sandboxed,
-  clipboard behaviour, WER dumps), `docs/THIRD-PARTY.md`, refresh `SECURITY_REVIEW.md`;
-  README section and `docs/WINDOWS_GUIDE.md`.
-- [ ] **W6** Code signing route decided; Microsoft Store submission; tag `windows-vX.Y.Z`.
-- [ ] `// TODO(test): verify on [PLATFORM: Windows/ARM64]` for ARM64 and clean-VM install runs.
+- [ ] **W0** PR #1 `.gitattributes`; PR #3 `windows-latest` CI (path-filtered).
+- [ ] **W0.5** Capture spike: console prober over ~15 apps, numeric go/no-go.
+- [ ] **W1** Read GIST's Windows stack (ADR-015/017/018, bindgen security review),
+  then a three-way shell spike (native Rust / WinUI 3 + uniffi-cs / minimal Win32).
+  Decide the process model (launcher-per-invocation vs resident). Write the
+  Windows section of `PRIVACY.md` before coding.
+- [ ] **W2** `contextgist-core` extraction with a shared `skip_words` helper and
+  oversized-token golden cases; keep Swift/golden paths unchanged until a macOS session.
+- [ ] **W3** `apps/windows`: popup, `RegisterHotKey`, UIA capture (password refusal,
+  512 KiB cap, worker thread + timeout), manual paste, per-failure messages.
+- [ ] **W4** `tools/package-windows.ps1`, `dist/windows/`, `INSTALL.txt`,
+  `WINDOWS_GUIDE.md`, `THIRD-PARTY.md`, Windows security pass, update path.
+- [ ] **W5** First release `windows-vX.Y.Z` (signing per owner eligibility).
+- [ ] Post-v1, separate releases: Share Target, opt-in Ctrl+C, ARM64, MSIX/Store,
+  start-at-login, hotkey rebinding UI.
+- [ ] `// TODO(test): verify on [PLATFORM: Windows/ARM64]` when ARM64 work starts.
 
 ## TODO: Linux
 
 - [ ] Spike first (time-boxed): X11 PRIMARY selection via global shortcut;
   Wayland primary-selection support per compositor; Flatpak portal limits.
   Record findings in `docs/ARCHITECTURE.md` before building.
-- [ ] Scaffold `apps/linux`, reusing the Windows Tauri shell where possible.
+- [ ] Scaffold `apps/linux`, reusing whichever Rust-side pieces the Windows shell spike keeps.
 - [ ] Entry point per spike outcome; document unsupported desktops.
 - [ ] Reject oversized selections and discard text on close.
 - [ ] Golden parity tests against `apps/macos/Tests/golden.json`.
