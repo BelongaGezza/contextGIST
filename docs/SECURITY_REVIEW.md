@@ -212,8 +212,9 @@ findings above:
   accessibility clients and screen capture, not only VoiceOver (S-10).
 - **#3 (signing): still open**, and worse than recorded: see #5.
 - **#4 (path dependency): fixed.** Residuals: `upstream-review.sh --record`
-  runs `cargo test` on unreviewed upstream code (S-15) and nothing asserts that
-  the `Cargo.toml` rev equals `UPSTREAM_BASELINE` (S-07).
+  runs `cargo test` on unreviewed upstream code (S-15). CI now asserts that the
+  `Cargo.toml` rev equals `UPSTREAM_BASELINE` (PR #8); the strict upstream gate
+  in `release-sign.sh` is still offline (S-07).
 
 ### 5. [High] Packaged app signed with `get-task-allow`
 
@@ -257,5 +258,7 @@ the sandbox container is unverified). Set `isRestorable = false`, consider
 
 A Windows version is only planned; see
 [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md) section 7 (a target baseline, not an
-implemented one) and S-02 to S-06 and S-13/S-14 in the review file for the
-spike's unsafe-code and design issues.
+implemented one). The capture spike's unsafe-code issues (S-02, S-03, S-13,
+S-14) are fixed in code on `platform/windows/spike-fixes` but unverified against
+live apps; S-05 and S-06 are plan-level gaps that stay open until the process
+model and shell are decided. The spike must not be reused as production code.
