@@ -15,6 +15,12 @@
 *.entitlements text eol=lf
 Cargo.lock text eol=lf
 UPSTREAM_BASELINE text eol=lf
+# Docs and text: ThirdPartyNotices.txt and INSTALL.txt are copied into the DMG,
+# so a CRLF checkout must not leak into a macOS package.
+*.md    text eol=lf
+*.txt   text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
 
 # Windows scripts want CRLF
 *.ps1   text eol=crlf
