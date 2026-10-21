@@ -62,4 +62,7 @@ jobs:
       # windows-latest checks out with core.autocrlf=true; .gitattributes must
       # keep golden.json at LF or golden_file_matches_gist_rsvp fails.
       - run: cargo test --workspace --locked
+      # rust-toolchain.toml pins the channel without components, so clippy is
+      # not installed on the runner by default.
+      - run: rustup component add clippy
       - run: cargo clippy --workspace --locked --all-targets -- -D warnings
