@@ -28,7 +28,8 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
    via PR with that platform's CI job green. Tag releases per platform:
    `macos-vX.Y.Z`, `windows-vX.Y.Z`, `linux-vX.Y.Z`. A release of one platform
    never waits on another.
-4. **Upstream review is shared.** `tools/upstream-review.sh --record` moves the
+4. **Upstream review is shared.** Until `tools/upstream-review.sh` is made
+   portable (it uses BSD `sed -i ''`), only macOS can run `--record`. `tools/upstream-review.sh --record` moves the
    one GIST pin for every platform; run the other platforms' tests before
    recording it.
 5. **Disclosures stay true per platform.** `docs/PRIVACY.md` and
@@ -48,7 +49,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 - [ ] Extract `crates/contextgist-core`: plain Rust (no uniffi) exposing
   `tokenize`, `default_config`, `orp_index`; make `contextgist-ffi` a thin uniffi
-  wrapper over it. Tauri (Windows/Linux) depends on it directly.
+  wrapper over it. The Windows/Linux Rust shells depend on it directly.
 - [ ] Port the wall-clock `PacingEngine` to Rust once in the core, tested against
   `apps/macos/Tests/golden.json`, so desktop shells don't each re-port it
   (macOS may keep its Swift engine, guarded by the existing parity tests).
@@ -64,26 +65,32 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 ## TODO: Windows 11
 
-- [ ] Scaffold `apps/windows` (Tauri) depending on `contextgist-core`; popup with
-  play/pause/rewind/fast-forward/speed, ORP-centred word, matching macOS behaviour.
-- [ ] Entry point: Windows Share Target registration (primary).
-- [ ] Entry point fallback: global hotkey sending Ctrl+C. Decide whether to ship;
-  if so, restore the prior clipboard and disclose the overwrite in the UI.
-- [ ] Reject oversized selections (macOS limit is 512 KiB) and discard text on close.
-- [ ] Golden parity tests against `apps/macos/Tests/golden.json`.
-- [ ] MSIX packaging with minimal capabilities (no network, no filesystem);
-  write `tools/package-windows.ps1` to populate `dist/windows/`.
-- [ ] Code-signing certificate; Microsoft Store submission.
-- [ ] `dist/windows/INSTALL.txt` (including SmartScreen steps while unsigned).
-- [ ] Add Windows to `docs/PRIVACY.md`, `docs/THIRD-PARTY.md` and a security-baseline pass.
-- [ ] Windows section in the README and a `docs/WINDOWS_GUIDE.md`.
+Rationale, phases and numeric exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
+v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
+
+- [ ] **W0** PR #1 `.gitattributes`; PR #3 `windows-latest` CI (path-filtered).
+- [ ] **W0.5** Capture spike: console prober over ~15 apps, numeric go/no-go.
+- [ ] **W1** Read GIST's Windows stack (ADR-015/017/018, bindgen security review),
+  then a three-way shell spike (native Rust / WinUI 3 + uniffi-cs / minimal Win32).
+  Decide the process model (launcher-per-invocation vs resident). Write the
+  Windows section of `PRIVACY.md` before coding.
+- [ ] **W2** `contextgist-core` extraction with a shared `skip_words` helper and
+  oversized-token golden cases; keep Swift/golden paths unchanged until a macOS session.
+- [ ] **W3** `apps/windows`: popup, `RegisterHotKey`, UIA capture (password refusal,
+  512 KiB cap, worker thread + timeout), manual paste, per-failure messages.
+- [ ] **W4** `tools/package-windows.ps1`, `dist/windows/`, `INSTALL.txt`,
+  `WINDOWS_GUIDE.md`, `THIRD-PARTY.md`, Windows security pass, update path.
+- [ ] **W5** First release `windows-vX.Y.Z` (signing per owner eligibility).
+- [ ] Post-v1, separate releases: Share Target, opt-in Ctrl+C, ARM64, MSIX/Store,
+  start-at-login, hotkey rebinding UI.
+- [ ] `// TODO(test): verify on [PLATFORM: Windows/ARM64]` when ARM64 work starts.
 
 ## TODO: Linux
 
 - [ ] Spike first (time-boxed): X11 PRIMARY selection via global shortcut;
   Wayland primary-selection support per compositor; Flatpak portal limits.
   Record findings in `docs/ARCHITECTURE.md` before building.
-- [ ] Scaffold `apps/linux`, reusing the Windows Tauri shell where possible.
+- [ ] Scaffold `apps/linux`, reusing whichever Rust-side pieces the Windows shell spike keeps.
 - [ ] Entry point per spike outcome; document unsupported desktops.
 - [ ] Reject oversized selections and discard text on close.
 - [ ] Golden parity tests against `apps/macos/Tests/golden.json`.
