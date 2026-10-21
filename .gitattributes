@@ -1,0 +1,37 @@
+# Line endings are pinned for files whose bytes matter across platforms.
+# Without this, core.autocrlf=true on Windows checks files out with CRLF:
+# golden_file_matches_gist_rsvp compares golden.json byte-for-byte (fails),
+# and shell scripts get CRLF (break under bash/zsh/WSL on every platform).
+
+# Pinned to LF everywhere
+*.json  text eol=lf
+*.sh    text eol=lf
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.swift text eol=lf
+*.plist text eol=lf
+*.entitlements text eol=lf
+Cargo.lock text eol=lf
+UPSTREAM_BASELINE text eol=lf
+# Docs and text: ThirdPartyNotices.txt and INSTALL.txt are copied into the DMG,
+# so a CRLF checkout must not leak into a macOS package.
+*.md    text eol=lf
+*.txt   text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+
+# Windows scripts want CRLF
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Never touch binaries
+*.dmg   binary
+*.png   binary
+*.icns  binary
+*.ico   binary
+*.msix  binary
+*.msi   binary
+*.zip   binary
