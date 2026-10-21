@@ -21,17 +21,20 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
    its CI job. Shared files (`crates/`, root `Cargo.toml`, `UPSTREAM_BASELINE`,
    `docs/ARCHITECTURE.md`) change in small separate PRs that every platform
    rebases on.
-2. **Pacing and tokenizing live in one place** (Swift pacing math uses `Float`, matching Rust's `f32`). Never hand-port pacing logic
+2. **Pacing and tokenizing live in one place.** Swift's pacing math must use
+   `Float`, matching Rust's `f32` (not yet true: Q-01, `PENDING_APPLE_CHANGES.md`).
+   Never hand-port pacing logic
    again (see `DEVELOPMENT_PLAN.md`, "Guiding constraint"). New platforms consume
    the shared core and must pass the golden parity tests.
 3. **Branches and releases.** Branch `platform/<name>/<topic>`; merge to `main`
    via PR with that platform's CI job green. Tag releases per platform:
    `macos-vX.Y.Z`, `windows-vX.Y.Z`, `linux-vX.Y.Z`. A release of one platform
    never waits on another.
-4. **Upstream review is shared.** Until `tools/upstream-review.sh` is made
-   portable (it uses BSD `sed -i ''`), only macOS can run `--record`. `tools/upstream-review.sh --record` moves the
+4. **Upstream review is shared.** `tools/upstream-review.sh --record` moves the
    one GIST pin for every platform; run the other platforms' tests before
-   recording it.
+   recording it. Until the script is made portable (Q-04: BSD `sed -i ''`),
+   only macOS can run `--record`; the report mode runs anywhere with `bash` and
+   `git`. CI asserts `UPSTREAM_BASELINE` equals the `Cargo.toml` rev.
 5. **Disclosures stay true per platform.** `docs/PRIVACY.md` and
    `docs/THIRD-PARTY.md` must describe each shipped platform; any platform that
    can't match the security baseline (sandboxed, no network, no telemetry, no
@@ -41,9 +44,9 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 | Platform | Code | CI | Package script | Signed release |
 |----------|------|----|----------------|----------------|
-| macOS | yes | yes | `tools/package-macos.sh` | no (unsigned) |
-| Windows 11 | spike only (`apps/windows/spikes/capture-prober`) | yes (`windows.yml`) | no | no |
-| Linux | no | no | no | no |
+| macOS | yes | yes (`ci.yml`) | `tools/package-macos.sh` | no (unsigned; blocked on an Apple Developer account) |
+| Windows 11 | spike only (`apps/windows/spikes/capture-prober`; no app) | yes (`windows.yml`: fmt, clippy, tests, spike build) | no | no |
+| Linux | no | shared core runs on ubuntu in `ci.yml`; no Linux app job | no | no |
 
 ## TODO: shared (unblocks Windows and Linux; do first)
 
@@ -53,28 +56,31 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 - [ ] Desktop Rust shells (Windows, Linux) drive `gist_rsvp::RsvpSession`
   directly instead of porting `PacingEngine`; golden-test against `golden.json`
   (macOS keeps its Swift engine, guarded by the parity tests).
-- [ ] **Parity hardening (from `REVIEW_2026-10-21.md`; Rust side done in PR #6, Swift `Float` + adopting the extended golden pending a macOS session):** Swift durations use
-  `Float` like Rust (Q-01); golden covers every integer WPM 100-1000, a
-  non-default config, oversized tokens, `skip_words`, `set_wpm` and Unicode
-  punctuation (T1-T7); the core applies the 256-byte token split (Q-02),
-  enforces the 512 KiB cap (S-04) and parses as UTF-8 (S-12/Q-13).
-- [ ] Add a CI matrix (`windows-latest`, `ubuntu-latest`) running
-  `cargo test --workspace --locked`, with per-platform jobs path-filtered so one
-  platform's changes don't gate the others.
-- [ ] Add `.github/CODEOWNERS` mapping each `apps/<platform>/`, `dist/<platform>/`
+- [ ] **Parity hardening, Swift half** (`REVIEW_2026-10-21.md`; the Rust half is
+  done and merged in PR #6: extended golden for T1-T4 and T6-T9, 256-byte split,
+  512 KiB cap, UTF-8-only parse). Pending a macOS session: Swift durations use
+  `Float` (Q-01) and the extended golden is adopted. Tests T5, T10, T11, T13, T14
+  are not written.
+- [x] CI: `ci.yml` (ubuntu + macOS) and the path-filtered `windows.yml`
+  (`windows-latest`) both run fmt, clippy and `cargo test --workspace --locked`
+  (PRs #3, #8). Still open: an always-run aggregator check and branch protection
+  before any path-filtered job is made required (Q-19).
+- [ ] (Optional while there is one maintainer) Add `.github/CODEOWNERS` mapping each `apps/<platform>/`, `dist/<platform>/`
   and `tools/package-<platform>.*` to its maintainer.
 - [ ] Per-platform release workflow triggered by `windows-v*` / `linux-v*` tags
   (mirror what macOS does locally in `tools/release-sign.sh`).
 - [ ] Decide DMG/installer storage: committed binaries (current for macOS) vs
   Git LFS vs GitHub Releases, before Windows/Linux installers add more weight.
+  `WINDOWS_PLAN.md` section 6 and the 2026-10-21 review (S-01, S-09, Q-25)
+  both favour GitHub Releases with a published SHA-256.
 
 ## TODO: Windows 11
 
 Rationale, phases and numeric exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
 v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
 
-- [x] **W0** `.gitattributes` (#1) and `windows-latest` CI (#3) merged 2026-10-21. Still to add: `cargo fmt --check`, spike clippy/build (Q-03).
-- [ ] **W0.5** Capture spike: console prober over ~15 apps, numeric go/no-go.
+- [x] **W0** `.gitattributes` (#1), `windows-latest` CI (#3) and fmt/clippy/spike-build gates (#8) merged 2026-10-21.
+- [ ] **W0.5** Capture spike: console prober over ~15 apps, numeric go/no-go. Prober built (#4) and hardened on `platform/windows/spike-fixes` (review fixes, CSV schema v2, `run-app-matrix.ps1`); still to do: run the matrix, commit the raw CSVs, apply the go/no-go.
 - [ ] **W1** Read GIST's Windows stack (ADR-015/017/018, bindgen security review),
   then a three-way shell spike (native Rust / WinUI 3 + uniffi-cs / minimal Win32).
   Decide the process model (launcher-per-invocation vs resident). Write the
@@ -107,6 +113,9 @@ v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
 
 ## TODO: macOS (remaining)
 
+- [ ] Rebuild the DMG without `get-task-allow` (S-01) and apply the Swift items
+  in `PENDING_APPLE_CHANGES.md`.
 - [ ] Developer ID signing and notarization via `tools/release-sign.sh`
-  (`SECURITY_REVIEW.md` finding #3); then commit the notarized DMG.
+  (`SECURITY_REVIEW.md` finding #3, blocked on an Apple Developer account);
+  then publish the notarized DMG.
 - [ ] Tag `macos-vX.Y.Z` releases once the above is done.

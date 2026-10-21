@@ -87,13 +87,16 @@ cargo deny --exclude-dev check            # licence/advisory/source policy (deny
 ./tools/gen-app-icon.sh [--refresh-source]   # regenerate apps/macos/AppIcon.icon from GIST's icon artwork
 
 # Upstream (GIST) review
-./tools/upstream-review.sh [--fetch]      # what changed in GIST (GitHub main) since UPSTREAM_BASELINE, grouped by impact
-./tools/upstream-review.sh --record "..." # after reviewing: move the Cargo.toml rev + baseline, run tests, log it in ARCHITECTURE.md
+./tools/upstream-review.sh                # what changed in GIST (GitHub main) since UPSTREAM_BASELINE, grouped by impact (fetches; `--ref <ref>`, `--check [--strict]` also exist)
+./tools/upstream-review.sh --record "..." # after reviewing: move the Cargo.toml rev + baseline, run tests, log it in ARCHITECTURE.md (macOS only until made portable, Q-04)
 ```
 
 CI (`.github/workflows/ci.yml`, on push to `main`, PRs and weekly) runs
-`cargo test --workspace --locked`, `cargo deny --exclude-dev check`, and an
-unsigned Debug `xcodebuild` of the app. Keep those three green; signing and
+`cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace --locked`,
+`cargo deny --exclude-dev check`, a check that `UPSTREAM_BASELINE` equals the
+`Cargo.toml` GIST rev, and an unsigned Debug `xcodebuild` + XCTest of the app.
+`.github/workflows/windows.yml` (path-filtered) repeats fmt/clippy/test on
+`windows-latest` and builds the Windows spike. Keep these green; signing and
 notarization stay local (`tools/release-sign.sh`).
 
 `xcodegen` and Xcode are required for the macOS app; `brew install xcodegen`
@@ -130,51 +133,37 @@ new source file (XcodeGen needs to re-scan `Sources/`).
 
 ## Current state
 
-Scaffolded 2026-09-25. `cargo test --workspace` passes (13 tests in
-`contextgist-ffi`, including adversarial-input tests against the upstream
-tokenizer/ORP code). `./tools/gen-bindings.sh` + `xcodegen generate` +
-`xcodebuild -scheme contextGIST build` all succeed cleanly. The built app's
-`NSServices` entry ("Speed Read with contextGIST") registers with Launch
-Services and shows up in the live pasteboard-services registry
-(`lsregister -f`, confirmed via `pbs -dump_pboard`), and the windowless
-`LSUIElement` process launches and stays running.
+Last rebased 2026-10-21. The ordered work list and review findings live in
+`docs/DEVELOPMENT_PLAN.md` (status snapshot at the top); this section is only
+the engineering baseline.
 
-The Services flow has been confirmed working hands-on: the menu item
-appears in a real app, the popup plays back, and closing it discards the
-text. One real bug was found and fixed in that first hands-on pass — the
-ORP reticle (the red focal letter) was jittering left/right because
-`WordDisplay` measured prefix/suffix pixel widths via `GeometryReader`/
-`PreferenceKey`, which lags a render frame behind each word change. Fixed
-by computing the offset synchronously from character counts against the
-(monospaced) font's fixed advance width instead — see `WordDisplay` in
-`RsvpView.swift`. This bug doesn't exist upstream in GIST
-(GIST's own RSVP view has no ORP centering at all yet), so it was filed as
-[gist#71](https://github.com/BelongaGezza/gist/issues/71) for that repo's
-own consideration rather than fixed there.
+- **Rust:** `cargo test --workspace --locked` passes (25 tests in
+  `contextgist-ffi`: adversarial inputs, golden parity against the pinned
+  GIST crates, the 512 KiB cap, UTF-8-only parsing, 256-byte token split).
+  `cargo fmt --all --check` and `cargo clippy -D warnings` are clean and gated
+  in CI. The Windows spike is its own workspace (`apps/windows/spikes/capture-prober`,
+  9 unit tests, fmt/clippy clean, built in `windows.yml`).
+- **Upstream:** `Cargo.toml` pin == `UPSTREAM_BASELINE` == GIST `5e25545`
+  (asserted in CI; no unreviewed upstream changes as of 2026-10-21).
+- **macOS app:** the Services flow is confirmed hands-on (popup plays, close
+  discards text, the process exits when idle). `contextGISTTests` (11 parity
+  tests against `apps/macos/Tests/golden.json`) runs in CI. Not yet verified
+  on a Mac since the Rust-core changes of PR #6: see `PENDING_APPLE_CHANGES.md`
+  (Swift `Float` durations, adopting `golden_extended.json`). Builds are
+  unsigned; the committed DMG carries `get-task-allow` and must not be
+  distributed (S-01). Developer ID signing/notarization is blocked on an Apple
+  Developer account.
+- **CI:** `ci.yml` (cargo test, fmt, clippy, cargo deny, baseline==pin,
+  unsigned Debug `xcodebuild` + XCTest, weekly upstream check) and
+  `windows.yml` (path-filtered, `windows-latest`, workspace + spike). Dependabot
+  is on for Actions and Cargo (never the GIST pin).
+- **Windows:** planning and a capture spike only; no app. See
+  `docs/WINDOWS_PLAN.md`. Linux, iOS/iPadOS and Chrome are not started.
+- **Reviews:** `docs/SECURITY_REVIEW.md` (2026-09-25, updated 2026-10-21) and
+  `docs/REVIEW_2026-10-21.md` (S-01..S-17, Q-01..Q-27, status table at the end).
+  Re-check them before any public distribution.
 
-A full security review has since been done — see
-`docs/SECURITY_REVIEW.md` — and its findings, plus the platform expansion
-(iOS/iPadOS, Chrome, Windows 11, Linux), are tracked in
-`docs/DEVELOPMENT_PLAN.md`. No Windows/Linux/browser-extension integration
-exists yet; macOS Services (+ the not-yet-started iOS Share Extension) is
-the only integration point today.
-
-2026-09-30: reviewed upstream GIST changes since the scaffold (baseline now
-GIST `24f4138`). Adopted: GIST's `elapsedMs` rounding fix in
-`PacingEngine`, a VoiceOver/contrast pass on the popup,
-`tools/build-dmg.sh`, licence notices (`tools/gen-third-party.sh`,
-bundled as `Resources/ThirdPartyNotices.txt`), and `docs/PRIVACY.md`.
-Deliberately not ported: GIST's punctuation-pause toggle, scrub slider,
-session stats, and rotary dial (see `docs/ARCHITECTURE.md`).
-
-2026-10-01: reviewed upstream again (baseline now GIST `fb6946a`). Adopted
-gist#79 (`orp_index` counts grapheme clusters, so the focal letter can no
-longer split an emoji/flag/accent); Swift `orpParts` already worked in
-`Character`s so needed no change. Added an FFI cluster-boundary test (14
-tests). CI (cargo test, cargo deny, unsigned Debug xcodebuild) is green.
-
-Also 2026-10-01: added the `contextGISTTests` XCTest target (11 parity tests
-for `PacingEngine`/`DisplayToken`/`skipWords`, expected values in
-`apps/macos/Tests/golden.json` generated from the Rust core; run in CI).
-`DisplayToken`, `PacingEngine` and `skipWords` are internal rather than
-private only so the tests can reach them.
+Landmarks worth remembering: the ORP reticle jitter (fixed by computing the
+offset from character counts, filed upstream as gist#71) and the upstream
+adoptions logged in `docs/ARCHITECTURE.md` "Upstream baseline". The
+per-session upstream-review history is in that table, not here.

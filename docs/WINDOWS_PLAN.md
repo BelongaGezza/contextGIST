@@ -24,13 +24,13 @@ verify are marked **(unverified)**.
 | W5 | **Pacing reuse is large but not total.** `gist_rsvp::RsvpSession` is pure and timer-free and has `token_at_elapsed`, `elapsed_at_token_end`, `seek`, `pause`, `resume`, `back_words` and `set_wpm`, so no pacing *math* is hand-ported. It has **no forward skip** (Swift's `skipWords(+1)` is a local extension), and `RsvpSession::new` runs `split_oversized_tokens` (256-byte cap) while the FFI `tokenize` output and the Swift engine do not, so token indices diverge for a word over 256 bytes. `FfiRsvpConfig` also omits `pause_on_punctuation` (default true, equal today). | One small shared helper `skip_words(tokens, from, n, dir)` and a decision on oversized tokens live in `contextgist-core`, not in a shell. Golden cases cover forward skip, oversized tokens and start/end clamps. |
 | W6 | **MSIX "sandboxed, no filesystem" is not achievable for a full-trust app.** Reading another process's selection (UIA) and sending input needs a `runFullTrust` (restricted-capability) packaged Win32 app, not an AppContainer. | The "sandboxed" item in the security baseline cannot be matched on Windows. Disclose it in `PRIVACY.md` rather than claiming parity. |
 | W7 | **UIPI (integrity levels).** A normal-integrity process cannot read from or send input to an elevated window. | Selections in "Run as administrator" apps will fail. Show a clear message; never ask users to run contextGIST elevated. Document as a known limit. |
-| W8 | **Real bug on this machine: golden test fails on a stock Windows checkout.** `core.autocrlf=true` checks `golden.json` (and `tools/*.sh`) out with CRLF; `golden_file_matches_gist_rsvp` compares bytes, so `cargo test --workspace --locked` reports 14 passed / 1 failed (verified 2026-10-21; `git ls-files --eol` shows `w/crlf`). Shell scripts checked out with CRLF would also break if run from Git Bash/WSL. | Fix first (step 0). CI on `windows-latest` would hit the same failure. |
-| W9 | `rust-toolchain.toml` lists only Apple targets, so Windows contributors get Apple std libs downloaded and no Windows ARM64 target. | Leave the Apple targets in the toml for macOS; install Windows targets from the packaging script only (step 0, 5a). |
+| W8 | **Real bug on this machine: golden test fails on a stock Windows checkout.** `core.autocrlf=true` checks `golden.json` (and `tools/*.sh`) out with CRLF; `golden_file_matches_gist_rsvp` compares bytes, so `cargo test --workspace --locked` reports 14 passed / 1 failed (verified 2026-10-21; `git ls-files --eol` shows `w/crlf`). Shell scripts checked out with CRLF would also break if run from Git Bash/WSL. | **Fixed** by `.gitattributes` (PR #1); `windows-latest` CI (PR #3) guards it. |
+| W9 | `rust-toolchain.toml` lists only Apple targets, so Windows contributors get Apple std libs downloaded and no Windows ARM64 target. | Leave the Apple targets in the toml for macOS; install Windows targets from the packaging script only (step 0, 5a). Still true; `rust-toolchain.toml` now also requests `clippy` and `rustfmt`. |
 | W10 | The parent `develop/CLAUDE.md` assumes Flutter/Dart for all targets; this repo is Rust + native shells, per its own `CLAUDE.md` and `ARCHITECTURE.md`. | The repo-level CLAUDE.md governs here. Platform-guard comments still apply to any shared code that gains `#[cfg(windows)]` paths. |
 | W11 | **GIST already ships a Windows stack** (the pinned `5e25545` checkout): WinUI 3 on .NET, uniffi C# bindings via a SHA-pinned third-party generator, `IRsvpEngine` with `BackWords`/`SetWpm`/`SetPauseOnPunctuation`, UI tests, and a bindgen security review (`docs/windows-development-plan.md` ADR-015/017/018, `docs/security-review-windows-bindgen.md`). The first draft of this plan ignored it and called WinUI "overkill" without evidence. | Section 2 starts from this prior art; its findings (unreviewed bindgen pin, DLL search order) are inherited if we go that way. |
 | W12 | **Capture reliability is asserted, not measured.** v1's value depends on UIA `TextPattern` hit rate across real apps, and `TextPattern` makes cross-process calls with no caching ([MS Learn](https://learn.microsoft.com/windows/win32/winauto/uiauto-about-text-and-textrange-patterns)). `GetSelection` returns an *empty range* when nothing is selected and NULL when unsupported. | A capture spike with numeric go/no-go is the first gate (section 8, phase W0.5). Chromium/Electron coverage is **(unverified)** until measured. |
 | W13 | **A resident hotkey process changes the privacy model in kind.** It breaks "app quits when the window closes" and the "process exit is the effective wipe" argument in `SECURITY_REVIEW.md` finding #2, and sits in the same behavioural class as screen scrapers for AV/EDR heuristics. | Process model is an open decision with a launcher-per-invocation option (section 3). |
-| W14 | `tools/upstream-review.sh` uses BSD `sed -i ''` (line 115) and `python3`; it cannot move the shared GIST pin from Windows/Linux. | Until made portable, macOS owns the pin (`PLATFORMS.md`). |
+| W14 | `tools/upstream-review.sh` uses BSD `sed -i ''` and `python3`; it cannot move the shared GIST pin from Windows/Linux. | Still open (Q-04). Until made portable, macOS owns the pin (`PLATFORMS.md`). |
 
 Environment checked on 2026-10-21: Windows 11 x64, Rust (MSVC host, 1.97.1
 pinned toolchain), Node, WebView2 155, Windows SDK 10.0.26100 present; `cl`/
@@ -146,7 +146,7 @@ target block the caller; the hotkey handler never runs on the UI thread):
 
 0. **Hygiene, small PR (#1):** add `.gitattributes` pinning explicit file
    types (no bare `* text=auto`; see 5a), re-normalize, confirm
-   `cargo test --workspace --locked` is 15/15 on Windows; handle the Windows
+   `cargo test --workspace --locked` passes on Windows; handle the Windows
    targets from the packaging script, leaving the Apple targets in
    `rust-toolchain.toml` untouched (W9, 5a).
 1. **Extract `crates/contextgist-core`** (plain Rust, no uniffi; `tokenize`,
@@ -237,9 +237,11 @@ in the next macOS session before tagging a macOS release.
 
 ## 7. Security and privacy baseline for Windows
 
-**Nothing here is implemented yet.** The column is the *target*; the spike
-already violates several rows and must not be reused as production code
-(`REVIEW_2026-10-21.md`: S-02, S-03, S-14).
+**Nothing here is implemented yet.** The column is the *target*. The spike is a
+measurement tool, not production code (it drops rather than zeroes the
+selection and abandons hung workers); its earlier violations of S-02, S-03 and
+S-14 are fixed in code but unverified against live apps
+(`REVIEW_2026-10-21.md`).
 
 | Baseline item | Windows target (implementation pending) |
 |---------------|-----------------------------------------|
@@ -267,7 +269,7 @@ criterion. The thresholds below are proposals for the owner to confirm.
 
 | Phase | Work | Exit criteria |
 |-------|------|---------------|
-| W0 | PR #1 `.gitattributes`, PR #3 Windows CI | 15/15 tests on `windows-latest` and a fresh clone |
+| W0 | PR #1 `.gitattributes`, PR #3 Windows CI (**done**; PR #8 added fmt/clippy/spike gates; 25/25 tests now) | all tests green on `windows-latest` and a fresh clone |
 | **W0.5** | **Capture spike**: console prober (hotkey, focused element, `GetSelection`, `GetText(cap+1)`) | Matrix of ~15 apps (Notepad classic and Win11, Edge, Chrome, Firefox, Word, Edge PDF, Acrobat, Windows Terminal, conhost, VS Code, Slack/Teams, one elevated app). Record hit, miss, latency and hang per app. **Go** only if the core set (suggest classic and new Notepad, Edge, Chrome, Word, VS Code) has a **Wilson 95 % lower bound of at least 90 %** over **at least 60 trials each** (warm and cold), reports p50/p95/max with *n* (first-attempt latency separate from any retry sleep), and shows zero unrecoverable hangs; otherwise reposition the product around paste/Share |
 | W1 | Shell spike (section 2), process-model decision (section 3), Windows section of `PRIVACY.md` | Written decision in `ARCHITECTURE.md`; p99 frame-to-frame delta of at most 2 ms over a 10-minute 1000 WPM soak logged **without text**; Narrator, no-activate and `WDA_EXCLUDEFROMCAPTURE` checks pass |
 | W2 | `contextgist-core` extraction, `skip_words`, oversized-token golden cases | macOS CI green; Swift tests read the golden file and cover forward skip and clamps |
@@ -280,21 +282,25 @@ criterion. The thresholds below are proposals for the owner to confirm.
 manual paste, popup with play/pause/rewind/forward/speed, x64, direct
 download, no settings file beyond the hotkey.
 
-**W0.5 interim result (2026-10-21, not yet a go/no-go):** a prober at
-`apps/windows/spikes/capture-prober/` found, with one trial per app: UIA works
-for Edge, Chrome (after the retry), Word, Windows Terminal and WinForms
-RichEdit; classic Notepad needs the Win32 `Edit` fallback; the password-field
-refusal works; VS Code returned an empty range for select-all and needs
-manual confirmation. The 20-trial thresholds above have not been run. Details
-and the table are in the prober's README.
+**W0.5 status (2026-10-21).** The first prober (PR #4) gave single-trial,
+hand-recorded observations: UIA works for Edge, Chrome (after the retry), Word,
+Windows Terminal and WinForms RichEdit; classic Notepad needs the Win32 `Edit`
+fallback; password-field refusal works; VS Code returned an empty range for
+select-all and needs manual confirmation. That is not a go/no-go. The review
+findings against the prober (S-02, S-03, S-13, S-14, Q-05 to Q-12) are fixed in
+code on `platform/windows/spike-fixes` (bounded buffers, running UTF-8 cap,
+single-flight capture, quoted CSV schema v2 with trial/label/OS build/app
+version/first-attempt latency, a PID-based matrix script with multi-line CRLF,
+CJK, RTL, emoji and over-cap samples). **Not yet done:** run the matrix at the
+required trial counts, commit the raw metadata CSVs, add the apps the script
+does not cover (Firefox, PDF viewers, Slack/Teams, conhost, an elevated app,
+new Windows 11 Notepad, a hang test), and apply the numeric criterion above.
+Details: the prober's README.
 
-**Review follow-ups before more spike data is collected:** fix the spike per
-`REVIEW_2026-10-21.md` (S-02, S-03, S-13, S-14, Q-05 to Q-12), commit raw
-metadata CSVs with app label, trial id, timestamp, OS build and app version,
-and add multi-line CRLF, CJK, RTL, emoji, over-cap and elevated samples.
-Core work to land first: durations must use `f32` arithmetic in Swift (Q-01),
-the 256-byte token split must be applied in the core (Q-02), and the core must
-enforce the 512 KiB cap and parse as UTF-8 (S-04, S-12).
+**Shared-core prerequisites (status).** Done in PR #6: the core enforces the
+512 KiB cap and parses as UTF-8 (S-04, S-12), applies the 256-byte token split
+(Q-02), and an extended golden exists. Still open and needing a macOS session:
+Swift `Float` durations (Q-01).
 
 ## 9. Testing notes (per `CLAUDE.md` section 9)
 
