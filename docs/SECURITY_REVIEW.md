@@ -238,13 +238,13 @@ Strip, remap (`--remap-path-prefix`), build releases in CI, publish a SHA-256.
 
 `tokenize` uses `ParseLimits::default()` (256 MB); the 512 KiB cap lives only
 in the Swift shell, so every future shell would have to remember it. Enforce it
-in `contextgist-ffi`. **Status: open.**
+in `contextgist-ffi`. **Status: fixed in PR #6 (2026-10-21)** — `tokenize` rejects input over 512 KiB; Swift's own check remains.
 
 ### 8. [Low] NUL-heavy selections are decoded as UTF-16
 
 Upstream `gist-parse-txt` sniffs UTF-16 before UTF-8, so text with interleaved
 NULs is shown as different text and reaches `encoding_rs`'s `unsafe` code.
-Parse with the named UTF-8 encoding. **Status: open.**
+Parse with the named UTF-8 encoding. **Status: fixed in PR #6 (2026-10-21)**; regression tests added.
 
 ### 9. [Low] Popup text visible beyond the window
 

@@ -115,9 +115,9 @@ See [`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md). Open items, none yet
 applied:
 
 - [ ] Swift `tokenDurationMs` to `Float`; golden for every integer WPM (Q-01).
-- [ ] Apply upstream's 256-byte token split in the core (Q-02).
-- [ ] Enforce the 512 KiB cap and UTF-8-only parsing in `contextgist-ffi`
-  (S-04, S-12).
+- [x] Apply upstream's 256-byte token split in the core (Q-02) — PR #6.
+- [x] Enforce the 512 KiB cap and UTF-8-only parsing in `contextgist-ffi`
+  (S-04, S-12) — PR #6.
 - [ ] Release build without `get-task-allow`; rebuild or retire the committed
   DMG (S-01).
 - [ ] `cargo fmt` clean and enforced; spike built and linted in CI (Q-03).
