@@ -115,8 +115,13 @@ target block the caller; the hotkey handler never runs on the UI thread):
    paragraph break; document this.
 5. The first call into Chromium/Electron may be slow or return an incomplete
    tree; retry once. Behaviour is version-dependent **(unverified)**.
-6. **Manual paste floor:** an empty reader accepts Ctrl+V. It needs no
-   privileges, works for elevated windows, and is the answer when 1-5 fail.
+6. **Classic Win32 `Edit`/`RichEdit` fallback.** Measured in the W0.5 spike:
+   classic Notepad exposes only `ValuePattern`, so UIA alone returns nothing.
+   For a focused `Edit*`/`RichEdit*` control, read `EM_GETSEL` and
+   `WM_GETTEXT` (length-checked before fetching, short timeout). Blocked by
+   UIPI for elevated targets, like everything else here.
+7. **Manual paste floor:** an empty reader accepts Ctrl+V. It needs no
+   privileges, works for elevated windows, and is the answer when 1-6 fail.
 
 **Post-v1 (separate, documented releases):**
 - *Explicit Share Target* (`Text` only, MSIX/sparse identity). Share is
@@ -265,6 +270,14 @@ criterion. The thresholds below are proposals for the owner to confirm.
 **Smallest v1:** `RegisterHotKey`, UIA capture with password refusal and cap,
 manual paste, popup with play/pause/rewind/forward/speed, x64, direct
 download, no settings file beyond the hotkey.
+
+**W0.5 interim result (2026-10-21, not yet a go/no-go):** a prober at
+`apps/windows/spikes/capture-prober/` found, with one trial per app: UIA works
+for Edge, Chrome (after the retry), Word, Windows Terminal and WinForms
+RichEdit; classic Notepad needs the Win32 `Edit` fallback; the password-field
+refusal works; VS Code returned an empty range for select-all and needs
+manual confirmation. The 20-trial thresholds above have not been run. Details
+and the table are in the prober's README.
 
 ## 9. Testing notes (per `CLAUDE.md` section 9)
 
