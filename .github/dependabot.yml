@@ -1,0 +1,20 @@
+# Keeps pinned action SHAs and Cargo dependencies current. Pull requests only;
+# nothing merges itself. The GIST git dependencies are pinned by commit and
+# moved by tools/upstream-review.sh --record, not by Dependabot.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: cargo
+    directory: /apps/windows/spikes/capture-prober
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
