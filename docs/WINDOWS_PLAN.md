@@ -6,7 +6,7 @@ dev machine. It **supersedes Phase 4 of
 [`PLATFORMS.md`](./PLATFORMS.md), which were drafted before anyone built on
 Windows. Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) first.
 
-**Revised 2026-10-21 after an independent adversarial review** (senior-model
+**Revised 2026-10-21 after two independent adversarial reviews** (architecture, then security + quality; findings in [`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md)) (senior-model
 pass over this plan and PRs #1-#3). It changed the plan materially: the shell
 is now a three-way spike that starts from GIST's existing Windows stack, a
 capture-reliability spike is the first gate, v1 is much smaller, and the
@@ -25,7 +25,7 @@ verify are marked **(unverified)**.
 | W6 | **MSIX "sandboxed, no filesystem" is not achievable for a full-trust app.** Reading another process's selection (UIA) and sending input needs a `runFullTrust` (restricted-capability) packaged Win32 app, not an AppContainer. | The "sandboxed" item in the security baseline cannot be matched on Windows. Disclose it in `PRIVACY.md` rather than claiming parity. |
 | W7 | **UIPI (integrity levels).** A normal-integrity process cannot read from or send input to an elevated window. | Selections in "Run as administrator" apps will fail. Show a clear message; never ask users to run contextGIST elevated. Document as a known limit. |
 | W8 | **Real bug on this machine: golden test fails on a stock Windows checkout.** `core.autocrlf=true` checks `golden.json` (and `tools/*.sh`) out with CRLF; `golden_file_matches_gist_rsvp` compares bytes, so `cargo test --workspace --locked` reports 14 passed / 1 failed (verified 2026-10-21; `git ls-files --eol` shows `w/crlf`). Shell scripts checked out with CRLF would also break if run from Git Bash/WSL. | Fix first (step 0). CI on `windows-latest` would hit the same failure. |
-| W9 | `rust-toolchain.toml` lists only Apple targets, so Windows contributors get Apple std libs downloaded and no Windows ARM64 target. | Move target lists out of the toml (installed by scripts) or add Windows targets (step 0). |
+| W9 | `rust-toolchain.toml` lists only Apple targets, so Windows contributors get Apple std libs downloaded and no Windows ARM64 target. | Leave the Apple targets in the toml for macOS; install Windows targets from the packaging script only (step 0, 5a). |
 | W10 | The parent `develop/CLAUDE.md` assumes Flutter/Dart for all targets; this repo is Rust + native shells, per its own `CLAUDE.md` and `ARCHITECTURE.md`. | The repo-level CLAUDE.md governs here. Platform-guard comments still apply to any shared code that gains `#[cfg(windows)]` paths. |
 | W11 | **GIST already ships a Windows stack** (the pinned `5e25545` checkout): WinUI 3 on .NET, uniffi C# bindings via a SHA-pinned third-party generator, `IRsvpEngine` with `BackWords`/`SetWpm`/`SetPauseOnPunctuation`, UI tests, and a bindgen security review (`docs/windows-development-plan.md` ADR-015/017/018, `docs/security-review-windows-bindgen.md`). The first draft of this plan ignored it and called WinUI "overkill" without evidence. | Section 2 starts from this prior art; its findings (unreviewed bindgen pin, DLL search order) are inherited if we go that way. |
 | W12 | **Capture reliability is asserted, not measured.** v1's value depends on UIA `TextPattern` hit rate across real apps, and `TextPattern` makes cross-process calls with no caching ([MS Learn](https://learn.microsoft.com/windows/win32/winauto/uiauto-about-text-and-textrange-patterns)). `GetSelection` returns an *empty range* when nothing is selected and NULL when unsupported. | A capture spike with numeric go/no-go is the first gate (section 8, phase W0.5). Chromium/Electron coverage is **(unverified)** until measured. |
@@ -109,17 +109,25 @@ target block the caller; the hotkey handler never runs on the UI thread):
    outcome: *empty selection* (degenerate range, not an error), *unsupported*
    (NULL / no TextPattern), *blocked by elevation* (UIPI), *timeout/hung*,
    *too large*. Never fall back silently to stale clipboard text.
-3. Read with `GetText(512 KiB + 1 characters)` and refuse above the cap, so a
-   select-all in a huge document cannot pull the whole file across processes.
+3. Read with `GetText(cap + 1)` (UTF-16 units), then measure **UTF-8 bytes**
+   and refuse above 512 KiB, so the Windows cap means the same as the macOS
+   one. Keep a **running UTF-8 byte total across all ranges** and stop as soon
+   as it exceeds the cap; also cap the range count. (Per-range character caps
+   do not bound memory: S-03.)
 4. Multiple non-contiguous ranges: join in document order with a single
    paragraph break; document this.
 5. The first call into Chromium/Electron may be slow or return an incomplete
    tree; retry once. Behaviour is version-dependent **(unverified)**.
 6. **Classic Win32 `Edit`/`RichEdit` fallback.** Measured in the W0.5 spike:
    classic Notepad exposes only `ValuePattern`, so UIA alone returns nothing.
-   For a focused `Edit*`/`RichEdit*` control, read `EM_GETSEL` and
-   `WM_GETTEXT` (length-checked before fetching, short timeout). Blocked by
-   UIPI for elevated targets, like everything else here.
+   Match the class name case-insensitively (`RICHEDIT50W` etc.). For plain
+   `Edit`: `EM_GETSEL` for the range, `WM_GETTEXTLENGTH` checked against the
+   cap **before** allocating, then `WM_GETTEXT`. For RichEdit: `EM_GETSELTEXT`
+   with a buffer sized from the (bounded) selection, because `EM_GETSEL`
+   offsets count CR as one character while `WM_GETTEXT` returns CRLF
+   *(reasoned, not yet run)*. Never size a buffer from a target-supplied
+   offset without bounding it first (S-02). Re-check `ES_PASSWORD`. Short
+   timeouts. Blocked by UIPI for elevated targets, like everything else here.
 7. **Manual paste floor:** an empty reader accepts Ctrl+V. It needs no
    privileges, works for elevated windows, and is the answer when 1-6 fail.
 
@@ -166,26 +174,20 @@ target block the caller; the hotkey handler never runs on the UI thread):
 
 ### 5a. Not breaking macOS (or Linux, iOS, Chrome later)
 
-Status of this branch: only `docs/` and `apps/windows/README.md` changed.
-Nothing in `crates/`, `tools/`, `.github/`, `Cargo.*`, `apps/macos/` or
-`rust-toolchain.toml` is touched, and no script or workflow reads the edited
-docs (only code comments mention them). The risks begin with the shared-core
-steps above, so each carries a rule and a gate.
-
 | Risk | Rule |
 |------|------|
 | `contextgist-core` extraction changes the uniffi surface | `contextgist-ffi` keeps its exported function, record and enum names, `crate-type = ["staticlib", "rlib"]` (no `cdylib`, see the comment in its `Cargo.toml`), and `panic = "unwind"`. Gate: regenerate bindings with `tools/gen-bindings.sh` and diff `apps/macos/Generated/*.swift` against the pre-change output: zero diff expected |
 | `golden.json` moved or reformatted | Keep `apps/macos/Tests/golden.json` where it is until the macOS project is updated in a macOS session (Apple-side files are off limits from Windows, `CLAUDE.md` section 7). Core tests may read the same path. Gate: file bytes unchanged; Swift `xcodebuild test` green in CI |
-| New Windows crate breaks `cargo test --workspace` on macOS/Linux CI | Make `apps/windows` a member but gate it: `windows` dependencies under `[target.'cfg(windows)'.dependencies]`, the `main` and modules under `#[cfg(windows)]` (with a stub `main` elsewhere), and set `default-members` so non-Windows jobs skip it. Gate: the existing `rust` (ubuntu) and `macos` jobs pass unchanged |
+| New Windows crate breaks `cargo test --workspace` on macOS/Linux CI | Make `apps/windows` a member but gate it: `windows` dependencies under `[target.'cfg(windows)'.dependencies]`, the `main` and modules under `#[cfg(windows)]` (with a stub `main` elsewhere). Gate: the existing `rust` (ubuntu) and `macos` jobs pass unchanged |
 | `Cargo.lock` grows (`windows`, UI toolkit) | The macOS build uses `--locked`, so commit the updated lock in the same PR. Re-run `tools/gen-third-party.sh` (it regenerates the bundled macOS `ThirdPartyNotices.txt` too) and `cargo deny --exclude-dev check`; confirm the macOS notices only gain entries that actually ship there, or scope the generator per platform. Gate: `deny` job green |
 | `.gitattributes` changes line endings or touches binaries | Pin LF for `*.json`, `*.sh`, `*.rs`, `*.toml`, `*.yml`, `*.swift`, `*.plist`, `*.entitlements`, plus `*.md`, `*.txt`, `.gitignore` and `.gitattributes` (the `.txt` pin matters because `ThirdPartyNotices.txt` and `INSTALL.txt` are copied into the DMG); mark `*.dmg`, `*.png`, `*.icns` as `binary`. No bare `* text=auto`: explicit types only, so an unlisted binary is never rewritten. Gate: `git ls-files --eol` shows no `w/crlf` on those types and `git diff --stat` after `git add --renormalize .` lists no binary files |
 | `rust-toolchain.toml` targets | Keep `aarch64-apple-darwin` and `x86_64-apple-darwin` (macOS Release is universal). Do not add Windows targets there, because rustup would install them everywhere; have `package-windows.ps1` run `rustup target add` instead. Gate: macOS `gen-bindings.sh` Release lipo still works |
 | Pin or `UPSTREAM_BASELINE` moves | Windows work never moves the GIST pin. Only `tools/upstream-review.sh --record` does, and it runs tests for every platform first (`PLATFORMS.md` rule 4) |
 | Windows-only `#[cfg]` leaks into shared crates | Shared crates (`contextgist-core`, `contextgist-ffi`) stay platform-neutral; OS code lives only in `apps/windows`. Where shared code ever needs a branch, use a `[PLATFORM: Windows]` guard comment and flag it for review |
 | `deny.toml` `[graph] targets` lists only Apple triples | Windows-only crates (`windows`, UI toolkit) are never checked until a Windows triple is added. Add `x86_64-pc-windows-msvc` in the same PR as the first Windows dependency; check licences on both |
-| `--workspace` still resolves Windows-only crates on macOS/Linux | `default-members` does not stop `--workspace`, and CI uses it. Use the cfg-gated stub `main`, and add `cargo check --workspace --locked` on all three OSes |
+| `--workspace` still resolves Windows-only crates on macOS/Linux | `default-members` does not stop `--workspace`, and CI uses it, so the cfg-gated stub `main` is what keeps non-Windows jobs green. Add `cargo check --workspace --locked` on all three OSes |
 | `gen-third-party.sh` lists crates that don't ship on macOS | Make the generator per-platform before the lock grows |
-| `upstream-review.sh --record` is BSD-only (`sed -i ''`, `python3`) | Only macOS can move the pin until the script is made portable. Add a CI job that runs the Windows tests on a pin-bump PR |
+| `upstream-review.sh --record` is BSD-only (`sed -i ''`, `python3`) | Only macOS can move the pin until the script is made portable. A pin-bump PR already triggers `windows.yml` (it watches `Cargo.toml`/`Cargo.lock`) |
 | Rev-pinned git dependency on GIST | Hash-locked and source-restricted in `deny.toml` (good), but a force-push, rate limit or GIST going private breaks cold builds; CI's `~/.cargo/git` cache masks it. Mirror or tag the rev in this org, or `cargo vendor` for release builds; note as residual risk in `ARCHITECTURE.md` |
 | `golden.json` path moves with the test | Keep the path unchanged until a macOS session; `UPDATE_GOLDEN=1` must write LF (guaranteed by `.gitattributes`) |
 | One platform's CI gating another | Path-filter jobs (never make a path-filtered workflow a *required* check without an always-run aggregator job, or docs-only PRs hang): macOS jobs run on `crates/**`, `apps/macos/**`, `tools/**`; the Windows job on `crates/**`, `apps/windows/**`. Anything under `crates/**` runs both, which is the intended gate for shared changes |
@@ -235,21 +237,28 @@ in the next macOS session before tagging a macOS release.
 
 ## 7. Security and privacy baseline for Windows
 
-| Baseline item | Windows status |
-|---------------|----------------|
-| Sandboxed | **Not met** (full-trust, W6). Disclose. Mitigate: no network capability, minimal Win32 surface, `/GUARD:CF`, `SetDefaultDllDirectories` |
-| No network | Met; no HTTP client dep (ban in `deny.toml`) |
-| No telemetry / no text logging | Met by design; test the silent panic hook; review for `println!`/`dbg!` on text |
-| Input-only | Met for UIA. Not applicable until the post-v1 Ctrl+C mode exists |
-| Memory-safe core | Met; `unsafe` confined to `capture` |
-| Text discarded on close | Met; drop-counter test. Weaker under the resident model (section 3) |
-| **Popup text visible to other processes** | The popup's UIA tree exposes each word to screen readers and automation clients; screenshots and Windows Recall may capture it. Set `WDA_EXCLUDEFROMCAPTURE` on the popup; disclose that this does not stop UIA clients or the user's own screen reader |
-| **Crash dumps (WER)** | Cannot be fully disabled per process without machine-wide registry config (admin). Document the residual risk rather than claim it closed |
+**Nothing here is implemented yet.** The column is the *target*; the spike
+already violates several rows and must not be reused as production code
+(`REVIEW_2026-10-21.md`: S-02, S-03, S-14).
+
+| Baseline item | Windows target (implementation pending) |
+|---------------|-----------------------------------------|
+| Sandboxed | **Cannot be met** (full-trust, W6). Disclose. Mitigate: no network capability, minimal Win32 surface, `/GUARD:CF`, `SetDefaultDllDirectories` |
+| No network | No networking crates (`deny.toml` ban) **and** no networking Win32 features in the `windows` crate feature list (CI check). Not OS-enforced, because there is no sandbox |
+| No telemetry / no text logging | By design; test the silent panic hook; review for `println!`/`dbg!` on text |
+| Input-only | UIA `GetSelection` and `EM_GETSEL`/`WM_GETTEXT` are read-only, **but a UIA query switches on accessibility inside Chromium/Electron targets**; disclose that side effect. Not applicable until post-v1 Ctrl+C mode exists |
+| Memory-safe core | `#![deny(unsafe_code)]` everywhere except one `win32` module, each block with a `// SAFETY:` comment. The core also depends on unsafe crates (`encoding_rs`, `memchr`, ...) |
+| Text discarded on close | Drop-counter test. Weaker under the resident model (section 3) |
+| **Hand-off to the reader process** | Anonymous inherited pipe/handle only; **never** argv, env, files, named pipes or the clipboard (command lines are readable by same-user processes and logged by EDR/Event 4688) |
+| **Install location / binary replacement** | A per-user install is replaceable by any same-user process. Resolve the reader by absolute path from `GetModuleFileNameW`; prefer an admin-writable location or document the trade-off |
+| **Cumulative cap** | 512 KiB UTF-8 across all ranges; `EM_GETSEL` end bounded before allocation; `ES_PASSWORD` re-checked in the fallback |
+| **Hotkey** | Avoid AltGr combinations (`Ctrl+Alt+R` is AltGr+R on many European layouts); single-flight capture; report registration failure, never override silently |
+| **Popup text visible to other processes** | The popup's UIA tree exposes each word to screen readers and automation clients; screenshots and Windows Recall may capture it. Set `WDA_EXCLUDEFROMCAPTURE`; disclose that it does not stop UIA clients |
+| **Crash dumps (WER)** | Cannot be fully disabled per process without machine-wide registry config (admin). Document the residual risk |
 | **Pagefile / hibernation** | May hold text. Document; no explicit zeroing (same decision as macOS finding #2) |
-| Auto-start persistence | Off by default; it is a standard malware indicator for EDR |
-| Hotkey squatting / conflicts | Report registration failure clearly; never silently override |
+| Auto-start persistence | Off by default; a standard malware indicator for EDR |
 | Unsigned binary / DLL hijack / updates | Sections 3 and 6 |
-| Persistence | None beyond non-text flags (hotkey) in `%LOCALAPPDATA%`; update `PRIVACY.md`, which says "no persistence of any kind" |
+| Persistence | None beyond non-text flags (hotkey) in `%LOCALAPPDATA%`; update `PRIVACY.md` |
 
 ## 8. Phases and exit criteria
 
@@ -259,7 +268,7 @@ criterion. The thresholds below are proposals for the owner to confirm.
 | Phase | Work | Exit criteria |
 |-------|------|---------------|
 | W0 | PR #1 `.gitattributes`, PR #3 Windows CI | 15/15 tests on `windows-latest` and a fresh clone |
-| **W0.5** | **Capture spike**: console prober (hotkey, focused element, `GetSelection`, `GetText(cap+1)`) | Matrix of ~15 apps (Notepad classic and Win11, Edge, Chrome, Firefox, Word, Edge PDF, Acrobat, Windows Terminal, conhost, VS Code, Slack/Teams, one elevated app). Record hit, miss, latency and hang per app. **Go** only if the core set (suggest Notepad, Edge, Chrome, Word, VS Code) hits at least 95 % over 20 trials each with p95 latency under 500 ms and no unrecoverable hang; otherwise reposition the product around paste/Share |
+| **W0.5** | **Capture spike**: console prober (hotkey, focused element, `GetSelection`, `GetText(cap+1)`) | Matrix of ~15 apps (Notepad classic and Win11, Edge, Chrome, Firefox, Word, Edge PDF, Acrobat, Windows Terminal, conhost, VS Code, Slack/Teams, one elevated app). Record hit, miss, latency and hang per app. **Go** only if the core set (suggest classic and new Notepad, Edge, Chrome, Word, VS Code) has a **Wilson 95 % lower bound of at least 90 %** over **at least 60 trials each** (warm and cold), reports p50/p95/max with *n* (first-attempt latency separate from any retry sleep), and shows zero unrecoverable hangs; otherwise reposition the product around paste/Share |
 | W1 | Shell spike (section 2), process-model decision (section 3), Windows section of `PRIVACY.md` | Written decision in `ARCHITECTURE.md`; p99 frame-to-frame delta of at most 2 ms over a 10-minute 1000 WPM soak logged **without text**; Narrator, no-activate and `WDA_EXCLUDEFROMCAPTURE` checks pass |
 | W2 | `contextgist-core` extraction, `skip_words`, oversized-token golden cases | macOS CI green; Swift tests read the golden file and cover forward skip and clamps |
 | W3 | Popup, hotkey, UIA capture, manual paste (x64) | W0.5 matrix reproduced in the app; password fields refused; a message per failure class; selections over 512 KiB refused |
@@ -278,6 +287,14 @@ RichEdit; classic Notepad needs the Win32 `Edit` fallback; the password-field
 refusal works; VS Code returned an empty range for select-all and needs
 manual confirmation. The 20-trial thresholds above have not been run. Details
 and the table are in the prober's README.
+
+**Review follow-ups before more spike data is collected:** fix the spike per
+`REVIEW_2026-10-21.md` (S-02, S-03, S-13, S-14, Q-05 to Q-12), commit raw
+metadata CSVs with app label, trial id, timestamp, OS build and app version,
+and add multi-line CRLF, CJK, RTL, emoji, over-cap and elevated samples.
+Core work to land first: durations must use `f32` arithmetic in Swift (Q-01),
+the 256-byte token split must be applied in the core (Q-02), and the core must
+enforce the 512 KiB cap and parse as UTF-8 (S-04, S-12).
 
 ## 9. Testing notes (per `CLAUDE.md` section 9)
 

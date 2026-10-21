@@ -34,7 +34,7 @@ Chrome, VS Code, Word and Windows Terminal on a dev machine (they open and
 close their own sample windows and take over focus for about a minute; do not
 type while they run).
 
-## Results so far (2026-10-21, one Windows 11 x64 machine, 1 trial each)
+## Interim observations (2026-10-21, one Windows 11 x64 machine, single trial each, hand-recorded)
 
 | App | Focused control | Patterns | Result | Notes |
 |-----|-----------------|----------|--------|-------|
@@ -48,5 +48,22 @@ type while they run).
 | Windows Terminal | `TermControl` | Text | ok via UIA, 27 ms (select-all via Ctrl+Shift+A) | |
 
 Not yet run: Firefox, Acrobat / Edge PDF, Slack/Teams, conhost, an elevated
-app, and the repeated trials (20 per core app) the go/no-go in
+app, and the repeated trials (at least 60 per core app) the go/no-go in
 `docs/WINDOWS_PLAN.md` section 8 requires. **This is not yet a go/no-go.**
+
+Reading the table: `latency_ms` includes a deliberate 300 ms sleep before any
+retry and a cold COM/UIA start, so the "~330 ms" figures are mostly that sleep,
+not UIA cost. The Notepad row is classic Win32 Notepad (class `Edit`); the new
+RichEdit-based Windows 11 Notepad has not been measured. No raw CSV is
+committed yet.
+
+## Known limitations (reviewed 2026-10-21; see `docs/REVIEW_2026-10-21.md`)
+
+Do not use this code in production and fix these before collecting go/no-go
+data: the `win32edit` path sizes its buffer from a target-supplied offset and
+can panic or abort (S-02, Q-05); the cap compares UTF-16 bytes in the fallback
+(Q-07); RichEdit offsets count CR once while `WM_GETTEXT` returns CRLF (Q-08);
+class matching is case-sensitive (Q-09); multi-range selections have no
+running cap (S-03); timed-out workers are never cancelled (S-14); CSV fields
+are unquoted (S-13, Q-11); the scripts match windows by title and keep sending
+keys if activation fails (S-13, Q-12).
