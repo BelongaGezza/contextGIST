@@ -3,13 +3,14 @@
 Changes needed in `apps/macos/` (Swift, Xcode project, Info.plist, signing)
 that were found in non-macOS sessions and must be made and verified on the
 macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
-[`docs/REVIEW_2026-10-21.md`](docs/REVIEW_2026-10-21.md) (merged separately).
+[`docs/REVIEW_2026-10-21.md`](docs/REVIEW_2026-10-21.md). Last updated
+2026-10-21; delete an item when it lands and is verified on a Mac.
 
-## From the Rust core / golden change (branch `platform/windows/core-parity`)
+## Parity with the Rust core (core side merged in PR #6)
 
-The Rust core now enforces the 512 KiB cap, parses as UTF-8 only, and returns
-word tokens split at 256 bytes. The exported uniffi surface is unchanged, so
-the generated Swift bindings are unchanged. `apps/macos/Tests/golden.json` is
+The Rust core enforces the 512 KiB cap, parses as UTF-8 only, and returns word
+tokens split at 256 bytes. The exported uniffi surface is unchanged, so the
+generated Swift bindings are unchanged. `apps/macos/Tests/golden.json` is
 unchanged and still passes. To do on a Mac:
 
 1. **`tokenDurationMs` must use `Float`, not `Double`** (`RsvpView.swift`,
@@ -29,7 +30,14 @@ unchanged and still passes. To do on a Mac:
 
 ## Other Apple-side items from the review (not yet started)
 
-Release build without `get-task-allow` (S-01); `NSWindow.isRestorable = false`
-(S-10); pasteboard length check before string conversion (S-11); `popup ===
-controller` guard in `onClose` (Q-17); monotonic clock (Q-14); weak self around
-`Task.sleep` (Q-21).
+- Release build without `get-task-allow` (S-01): `CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO`
+  for Release, a gate in `build-dmg.sh`/`release-sign.sh` that fails when the
+  entitlement is present, then rebuild or retire the committed DMG.
+- `NSWindow.isRestorable = false`, consider `sharingType = .none` (S-10).
+- Pasteboard length check before string conversion (S-11).
+- `popup === controller` guard in `onClose` (Q-17).
+- Monotonic clock instead of `Date()` (Q-14); weak self around `Task.sleep` (Q-21).
+- Long-word scaling (Q-15), RTL/CJK width maths (Q-16), a status result from
+  `tokenize` instead of an empty list (Q-18; changes the uniffi signature).
+- Portable `tools/upstream-review.sh` (Q-04) is shell, not Apple-specific, but
+  `--record` should be verified on macOS after the change (BSD `sed` path).

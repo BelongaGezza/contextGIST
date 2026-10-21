@@ -234,9 +234,12 @@ macOS-only for now and doesn't need iOS/multi-arch packaging.
 
 ## Not yet built
 
-- Windows/browser-extension equivalents (macOS Services is the only
-  integration point today — see the platform decision recorded when this
-  project was scaffolded).
+- Windows (only a capture-reliability spike exists:
+  `apps/windows/spikes/capture-prober`, see `docs/WINDOWS_PLAN.md`), Linux,
+  iOS/iPadOS and browser-extension equivalents. macOS Services is the only
+  integration point today. The shared core is still `contextgist-ffi`; the
+  planned plain-Rust `contextgist-core` extraction (W2 in `WINDOWS_PLAN.md`)
+  has not been done.
 - Word-chunking (`chunk_size` > 1) — `default_config()` returns GIST's
   default of `1`, and the Swift side doesn't yet group multiple tokens into
   one display frame.

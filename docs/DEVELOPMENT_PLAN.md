@@ -1,10 +1,15 @@
 # Development plan
 
 Written 2026-09-25, after the macOS app's first working build and a
-security review ([`docs/SECURITY_REVIEW.md`](./SECURITY_REVIEW.md)). This
-plan does two things: closes the gaps that review found, and lays out
-adding contextGIST's capability to Windows 11, iPhone, iPad, Linux, and
-Chrome — in that order for a reason explained per-phase below.
+security review ([`docs/SECURITY_REVIEW.md`](./SECURITY_REVIEW.md)); **rebased
+2026-10-21** after the second review
+([`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md)) and PRs #1-#8. This plan
+does two things: closes the gaps those reviews found, and lays out adding
+contextGIST's capability to Windows 11, iPhone, iPad, Linux, and Chrome.
+Platform order and the reason for it are per-phase below (Windows is now
+driven by [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md) and is being worked first
+because a Windows dev machine is active; iOS remains the cheapest macOS-side
+phase and needs a Mac).
 
 Read [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) first if you haven't —
 this plan assumes its framing (narrow reuse of GIST's Rust core, no
@@ -32,138 +37,79 @@ language, and Phase 2 explicitly builds a second reusable core (WASM)
 specifically so Chrome/Windows/Linux don't each need their own hand-port
 either.
 
-## Phase 0 — Harden the macOS baseline (do this first)
+## Status snapshot (2026-10-21)
 
-Every later phase either reuses this code directly (iOS/iPadOS) or reuses
-its *shape* (everyone else). Fix it once, here, before multiplying it.
+| Area | State |
+|------|-------|
+| macOS app | Working; Services flow verified; Phase 0 hardening done except signing. Needs a Mac session for the parity items in `PENDING_APPLE_CHANGES.md` |
+| Rust core (`contextgist-ffi`) | 25 tests; cap, UTF-8-only parse and 256-byte split enforced (PR #6); fmt/clippy clean and CI-gated |
+| Upstream (GIST) | Pin == `UPSTREAM_BASELINE` == `5e25545`; CI asserts equality; no unreviewed upstream changes |
+| CI | `ci.yml` + `windows.yml`; fmt, clippy, tests, `cargo deny`, XCTest, weekly upstream check; Dependabot on |
+| Windows | Plan merged; capture spike hardened on `platform/windows/spike-fixes` (PR pending); no go/no-go data yet |
+| Linux, iOS/iPadOS, WASM, Chrome | Not started |
+| Release | Blocked: Apple Developer account (signing), S-01 DMG rebuild, no `SECURITY.md`, `main` unprotected |
 
-- [x] Cap accepted selection length in `AppServiceProvider.readSelection`
-  (finding #1) with a clean user-facing error above the cap. 512 KiB
-  (`maxSelectionBytes`, ~85,000 words); above it an alert explains the limit.
-  Verified via the real Services path on 2026-09-30.
-- [x] Move `tokenize(text:)`/`DisplayToken` construction off the main
-  thread, or show a loading state for large-but-under-cap input. Done:
-  `RsvpPlayer` tokenizes in a detached task and shows a spinner until
-  ready, then auto-plays. Word counts for the progress readout are
-  precomputed, so each tick is O(1).
-- [x] Add adversarial-input tests against `gist-parse-txt`/`gist-rsvp`
-  (long words, bidi/RTL text, zero-width joiners, degenerate whitespace) —
-  a panic here is what would trigger finding #1's crash-report exposure.
-  Done in `contextgist-ffi`'s tests (plus control characters, line-ending
-  styles, and a 5,000-case seeded pseudo-fuzz). No panics found. As a
-  second layer, the FFI exports now contain panics (`contain`) rather than
-  letting them trap in Swift.
-- [x] Decide and document the memory-scrubbing stance (finding #2) — even
-  if the decision is "encrypted swap is enough, we're not doing explicit
-  zeroing," write down *why* so it's a decision, not an oversight.
-  Decision recorded under finding #2: no explicit zeroing.
-- [x] Make sure the app process exits when it has nothing open (finding #2's
-  decision relies on it). A 2026-09-30 hands-on check found the app still
-  running after the popup was closed. That couldn't be reproduced, but a
-  real gap turned up: a launch that never opened a popup (empty selection,
-  "too long" alert, plain launch) never exited. Exit is now explicit
-  (`AppServiceProvider.quitIfIdle()`, plus a 10 s idle timeout after
-  launch) rather than relying only on AppKit's
-  `applicationShouldTerminateAfterLastWindowClosed`. Verified with Debug-only
-  test hooks (`CONTEXTGIST_TEST_AUTOCLOSE_AFTER` etc., see
-  `PopupController.showWindow`) across five scenarios, including a
-  Services-launched instance. Confirmed hands-on on the Release build
-  (2026-09-30): after closing the popup, `pgrep -lf contextGIST` printed
-  nothing.
-- [ ] Prove out real Developer ID signing + Hardened Runtime + notarization
-  on a Release build (finding #3) — do this before, not during, the first
-  time this leaves the current machine. **Blocked on an Apple Developer
-  account** (no signing identity on the dev machine).
-  `tools/release-sign.sh` is ready and its ad-hoc path is tested.
-- [x] Mirror GIST's `deny.toml` license/advisory policy in this
-  workspace's `Cargo.toml` (finding #4). Done as a root `deny.toml` (the
-  standard cargo-deny location, not `Cargo.toml`). `cargo deny --exclude-dev
-  check` passes all four checks with cargo-deny 0.20.2. The local 0.18.3
-  can't parse the current advisory DB; `cargo install cargo-deny --locked`
-  fixes that.
-- [x] Run `cargo deny` in CI: done in `.github/workflows/ci.yml` (`deny` job,
-  also weekly so new advisories surface). Originally: no CI existed, so there
-  was no automated dependency-vulnerability gate at all. CI needs no GIST checkout — Cargo fetches
-  the pinned git dependency.
+### Next actions, in order
 
-Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
-2026-09-30; see `docs/ARCHITECTURE.md` "Upstream baseline"):
+1. **Windows W0.5** (any machine): merge the spike fixes, run the app matrix,
+   commit the raw metadata CSVs, apply the go/no-go in `WINDOWS_PLAN.md` section 8.
+2. **Repo hygiene, small PRs** (any machine): branch protection on `main` with an
+   always-run aggregator check; `deny.toml` Windows triples plus the
+   RUSTSEC-2026-0374 decision; `.gitignore` secret patterns; `SECURITY.md`;
+   portable `upstream-review.sh` (Q-04); Q-20 (upstream job opens an issue
+   instead of going red).
+3. **Shared core extraction** (`contextgist-core`, W2) once W0.5 says go, with
+   `skip_words` and the missing golden cases (T3-T5, T14 in the review).
+4. **Next macOS session**: everything in `PENDING_APPLE_CHANGES.md`, then rebuild
+   the DMG without `get-task-allow` (S-01).
+5. **Windows W1 shell spike and process-model decision**, then W3 onward.
+6. Phases 1-3, 5 below, in the order the owner chooses.
 
-- [x] Third-party licence disclosure: `docs/THIRD-PARTY.md` plus a bundled
-  `Contents/Resources/ThirdPartyNotices.txt`, both generated by
-  `tools/gen-third-party.sh` (mirrors GIST `401a972`). Re-run it after any
-  `Cargo.lock` change.
-- [x] `docs/PRIVACY.md` (mirrors GIST `17154ea`).
-- [x] `tools/build-dmg.sh`: unsigned DMG packaging, adapted from GIST
-  `b20908d`. GIST's `release-macos.yml` workflow wasn't ported because this
-  repo has no CI yet (the GitHub remote exists now); port it once CI is set up. Signing and
-  notarization remain finding #3 above.
-- [x] Universal (arm64 + x86_64) build before shipping a DMG to anyone else.
-  Release builds are now universal (`gen-bindings.sh` lipo's both slices;
-  `project.yml` sets per-configuration library paths). Both slices link the
-  Rust core; the x86_64 slice hasn't been *run* (no Intel Mac or Rosetta on
-  the dev machine).
-- [x] App icon: `AppIcon.icon`, generated from GIST's macOS artwork by
-  `tools/gen-app-icon.sh` (see `docs/ARCHITECTURE.md` "App icon").
-- [x] VoiceOver pass on the popup (labels, one-element word display) and a
-  contrast check on the ORP letter (mirrors GIST `0e44caa`'s approach).
-  Hands-on VoiceOver verification is still needed.
+## Phase 0 — Harden the macOS baseline
 
-### Added by the 2026-10-21 security and quality review
+Every later phase reuses this code or its shape. **Done** (details in git
+history and `SECURITY_REVIEW.md`): selection cap in `readSelection` (512 KiB);
+off-main-thread tokenizing with a spinner; adversarial-input tests plus
+`contain` around the FFI exports; memory-scrubbing decision (no explicit
+zeroing, finding #2); explicit exit when idle (`quitIfIdle()` plus a 10 s idle
+timeout; verified hands-on on Release); `deny.toml` policy and a `cargo deny`
+CI job; third-party notices (`tools/gen-third-party.sh`); `docs/PRIVACY.md`;
+unsigned DMG packaging (`tools/build-dmg.sh`, universal arm64 + x86_64, the
+x86_64 slice linked but never run); app icon; VoiceOver labels and ORP contrast
+(hands-on VoiceOver check still wanted); Swift parity tests against
+`golden.json` (11 tests, CI); upstream-review tooling and the weekly CI check;
+GIST `fb6946a` adoption (grapheme-cluster `orp_index`), and every later review
+logged in `ARCHITECTURE.md`.
 
-See [`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md). Open items, none yet
-applied:
+Still open from Phase 0:
 
-- [ ] Swift `tokenDurationMs` to `Float`; golden for every integer WPM (Q-01).
-- [x] Apply upstream's 256-byte token split in the core (Q-02) — PR #6.
-- [x] Enforce the 512 KiB cap and UTF-8-only parsing in `contextgist-ffi`
-  (S-04, S-12) — PR #6.
-- [ ] Release build without `get-task-allow`; rebuild or retire the committed
-  DMG (S-01).
-- [ ] `cargo fmt` clean and enforced; spike built and linted in CI (Q-03).
-- [ ] Portable `upstream-review.sh` (Q-04).
+- [ ] **Developer ID signing + Hardened Runtime + notarization** (finding #3).
+  Blocked on an Apple Developer account. `tools/release-sign.sh` is ready; its
+  ad-hoc path is tested. Do this before the build leaves the current machine.
 
-### Added by the 2026-10-01 status review
+### From the 2026-10-21 review (see its "Pending fixes" table for IDs)
 
-State at review: `main` == `origin/main`, tree clean, 13/13 Rust tests,
-`cargo deny` clean, CI green (the first CI run failed only because
-`uniffi-bindgen` wasn't installed; fixed in `44eb967`).
+Done in PR #6 (Rust core): 512 KiB cap and UTF-8-only parsing in the core
+(S-04, S-12, Q-13), 256-byte token split (Q-02), extended golden (T1-T4, T6-T9).
+Done in PR #8 (CI): `cargo fmt`/clippy gates, spike build, baseline==pin check,
+XcodeGen checksum, `persist-credentials: false`, PR-only `cancel-in-progress`,
+Dependabot.
 
-- [x] **Adopt GIST `fb6946a`** (done 2026-10-01) (gist#79, fixes #78: `orp_index` counts
-  grapheme clusters, not chars — the ORP could land inside an emoji, flag
-  or accented letter, and disagreed with Swift's `OrpCalculator`). Baseline
-  and pin are at `9dc537c`; GIST `main` is `fb6946a`. Steps: check how
-  `orp_index` is used in `contextgist-ffi` and `RsvpView.swift`
-  (`WordDisplay` computes the reticle offset from character counts, so
-  confirm it counts the same units); add emoji/flag/combining-mark ORP
-  cases to the FFI tests (extend
-  `zero_width_joiners_emoji_and_combining_marks`); move the pin with
-  `tools/upstream-review.sh --record "..."`; commit. **Blocks
-  `release-sign.sh`** until recorded. Other review categories (Swift
-  pacing/ORP, icon, security policy) had no changes.
-- [x] **Swift-side test coverage** (done 2026-10-01). `contextGISTTests`
-  (`apps/macos/Tests/PacingParityTests.swift`, 11 tests) checks
-  `PacingEngine`, `DisplayToken` and `skipWords` against
-  `Tests/golden.json`, which `contextgist-ffi`'s
-  `golden_file_matches_gist_rsvp` generates from the real GIST crates
-  (tokenization, ORP offsets, per-token durations at 7 WPMs,
-  `token_at_elapsed`). The Rust test fails when the file is stale, so moving
-  the GIST pin forces `UPDATE_GOLDEN=1 cargo test -p contextgist-ffi golden`
-  and a Swift re-run. Runs in CI (`xcodebuild test`). Mutation-checked:
-  dropping the `elapsedMs` rounding or a clause rule fails the suite. Not
-  covered: rendering/`WordDisplay` layout, VoiceOver, the Services flow.
-- [x] **Run `upstream-review.sh --check --strict` in CI** (done 2026-10-01):
-  the `upstream` job in `.github/workflows/ci.yml` clones GIST and runs it,
-  printing the full report on failure. Scheduled (weekly) and manual
-  (`workflow_dispatch`) only, not on push/PR, so an unrelated GIST commit
-  never turns a contextGIST PR red.
-- [ ] **Refresh `docs/SECURITY_REVIEW.md`** before any public distribution
-  (it is a 2026-09-25 point-in-time review; re-check its findings against
-  current code, including CI/workflow changes made since).
-- [x] **Regenerate `docs/THIRD-PARTY.md`** (done 2026-10-01: ran, no diff — `unicode-segmentation` was already in the tree) only if the pin bump changes
-  `Cargo.lock` (`tools/gen-third-party.sh`); keep `docs/PRIVACY.md` true.
-- [ ] Update `CLAUDE.md` "Current state" with the 2026-10-01 review and the
-  CI addition once the adoption above lands.
+- [ ] Swift `tokenDurationMs` to `Float`; adopt `golden_extended.json` (Q-01) — **macOS session**.
+- [ ] Release build without `get-task-allow`; gate in packaging; rebuild or retire the
+  committed DMG, preferably move DMGs to GitHub Releases with a published SHA-256 (S-01, S-09) — **macOS session**.
+- [ ] Other Swift fixes: S-10, S-11, Q-14-Q-18, Q-21 — **macOS session** (`PENDING_APPLE_CHANGES.md`).
+- [ ] Portable `upstream-review.sh`; `--record` reviews the diff before running tests; keychain
+  profile and entitlement allow-list in `release-sign.sh` (Q-04, Q-24, S-07, S-15).
+- [ ] Repo settings: branch protection on `main` + always-run `ci-ok` aggregator,
+  `sha_pinning_required`, approval for outside workflow runs (S-08, Q-19).
+- [ ] `deny.toml` Windows triples and RUSTSEC-2026-0374 handling (S-05, S-16); `.gitignore`
+  secret/`*.bak`/`*.csv` patterns (S-17); `SECURITY.md`; `gen-third-party.sh` flags (Q-23).
+- [ ] Core: `tokenize` status/`Result` (Q-18, uniffi signature change, needs Swift),
+  `contain` stderr subprocess test, bulk `tokenize_with_orp` (Q-22); remaining tests T5, T10, T11, T13, T14.
+- [ ] Q-20: the weekly `upstream` job should open or update one issue rather than go red.
+- [ ] Refresh `docs/SECURITY_REVIEW.md` before any public distribution (re-done in
+  part on 2026-10-21; repeat after the Swift/signing fixes above).
 
 ## Phase 1 — iPhone / iPadOS: Share Extension
 
@@ -262,7 +208,9 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
 ## Phase 4 — Windows 11
 
 **Superseded by [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md)** (architecture review,
-2026-10-21, revised after an independent adversarial review). Summary:
+2026-10-21, revised after an independent adversarial review). Status: W0 done
+(`.gitattributes`, Windows CI); W0.5 capture spike built and hardened, no
+go/no-go data yet. Summary:
 
 - **Gates first:** a capture-reliability spike (UI Automation hit rate across
   ~15 apps, numeric go/no-go), then a three-way shell spike that starts from
@@ -325,11 +273,10 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
   2026-09-29 review (its finding F30) found that reviews done only on
   explicit request let ~4,700 lines land unreviewed. Don't repeat that
   here.
-- [ ] **Ongoing** (last run 2026-10-01: `fb6946a` adopted, baseline
-  now `fb6946a`): when the
-  build shows the upstream warning, or at the
-  start of a work session, run the review, act on it, and `--record` it.
-  The weekly CI `upstream` job now does the check too.
+- [ ] **Ongoing** (last run 2026-10-21: baseline and pin `5e25545`, nothing
+  to adopt): when the build shows the upstream warning, or at the start of a
+  work session, run `tools/upstream-review.sh`, act on it, and `--record` it
+  (macOS only until Q-04). The weekly CI `upstream` job also checks.
 - [ ] Re-run a security review pass (informal is fine) at the end of each
   phase before that platform ships — this doc's Phase 0 review was cheap
   precisely because the codebase was still small; don't let five platforms'
