@@ -29,6 +29,10 @@ on:
       - ".gitattributes"
       - ".github/workflows/windows.yml"
   workflow_dispatch:
+  # Weekly, so a toolchain or advisory change that breaks the Windows lane
+  # surfaces without needing a path-matching commit.
+  schedule:
+    - cron: "0 7 * * 1"
 
 permissions:
   contents: read
