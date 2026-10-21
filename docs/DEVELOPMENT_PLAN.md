@@ -186,7 +186,7 @@ not just tidy.
   label" answers match reality (no data collected, full stop) before
   submitting.
 
-## Phase 2 — Build a WASM core (foundation for Chrome, later Windows/Linux)
+## Phase 2 — Build a WASM core (foundation for Chrome; desktop shells use the native Rust core instead)
 
 **Why before Chrome**: same "don't hand-port pacing a third time" reasoning
 as above. Compile `gist-model`/`gist-parse-txt`/`gist-rsvp` to WASM via
@@ -247,30 +247,23 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
 
 ## Phase 4 — Windows 11
 
-- [ ] **Recommended shell: Tauri.** Reuses `contextgist-ffi`-shaped Rust
-  core as a native Rust dependency directly (no WASM layer needed on
-  desktop — that's a browser constraint, not a Windows one), small
-  footprint, and the same shell can very likely be reused for Phase 5
-  (Linux) with only packaging differences.
-- [ ] **Entry point, primary**: register as a Windows Share Target (the
-  Share contract most text-capable apps already support) — the closest
-  real analog to macOS Services. Not universal (not every app implements
-  Share), but clean and requires no synthetic input.
-- [ ] **Entry point, fallback, flag explicitly to the user before
-  building**: a global hotkey that programmatically sends Ctrl+C to grab
-  the current selection when the target app has no Share support. This is
-  a real security/privacy tradeoff, not a free convenience feature — it
-  (a) requires input-simulation privileges, and (b) **overwrites the
-  user's actual clipboard**, which can propagate into Windows Clipboard
-  History and any cloud clipboard sync the user has enabled. If built:
-  save and restore the clipboard's prior contents immediately after
-  reading, and disclose the momentary clipboard overwrite in the UI, not
-  just a changelog.
-- [ ] Packaging: MSIX with a minimal capability list (no network, no
-  filesystem capabilities declared — mirror the macOS entitlements file's
-  "sandboxed, nothing extra" posture), signed with a real code-signing
-  cert to avoid SmartScreen friction, Microsoft Store distribution
-  preferred for the trust baseline it gives for free.
+**Superseded by [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md)** (architecture review,
+2026-10-21, revised after an independent adversarial review). Summary:
+
+- **Gates first:** a capture-reliability spike (UI Automation hit rate across
+  ~15 apps, numeric go/no-go), then a three-way shell spike that starts from
+  GIST's existing WinUI 3 + uniffi-cs Windows stack versus native Rust UI
+  versus a minimal Win32 window. Tauri is rejected (forces a JS pacing port).
+- **Pacing:** no pacing math is hand-ported; `gist_rsvp::RsvpSession` is used,
+  plus one shared `skip_words` helper in `contextgist-core`.
+- **v1 scope:** global hotkey (`RegisterHotKey` only), UI Automation capture
+  with password-field refusal and a 512 KiB cap, manual paste fallback, x64,
+  direct download. Share Target, opt-in Ctrl+C, ARM64, MSIX/Store and
+  start-at-login are post-v1.
+- **Process model** (launcher-per-invocation vs resident) is decided before
+  code, because a resident process changes the privacy promises.
+- **Security baseline:** "sandboxed" cannot be matched (full-trust); disclosed,
+  not claimed.
 
 ## Phase 5 — Linux
 
