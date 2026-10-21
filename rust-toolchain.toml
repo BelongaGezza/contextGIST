@@ -4,7 +4,10 @@
 # requirement of their own. contextGIST's uniffi version needs a newer
 # rustc than 1.88 to resolve its transitive deps, so this workspace pins
 # its own, separately-updated toolchain.
-channel = "1.97.1" # matches the "stable" toolchain already installed on this machine
+channel = "1.97.1"
+# clippy and rustfmt are used by CI and local checks; the toolchain file pins
+# the channel, so request them here rather than adding runner steps.
+components = ["clippy", "rustfmt"] # matches the "stable" toolchain already installed on this machine
 # Release builds are universal (arm64 + x86_64): tools/gen-bindings.sh
 # builds both slices and lipo's them together. Listing the targets here
 # makes rustup install them automatically.
