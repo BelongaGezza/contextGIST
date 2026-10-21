@@ -21,7 +21,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
    its CI job. Shared files (`crates/`, root `Cargo.toml`, `UPSTREAM_BASELINE`,
    `docs/ARCHITECTURE.md`) change in small separate PRs that every platform
    rebases on.
-2. **Pacing and tokenizing live in one place.** Never hand-port pacing logic
+2. **Pacing and tokenizing live in one place** (Swift pacing math uses `Float`, matching Rust's `f32`). Never hand-port pacing logic
    again (see `DEVELOPMENT_PLAN.md`, "Guiding constraint"). New platforms consume
    the shared core and must pass the golden parity tests.
 3. **Branches and releases.** Branch `platform/<name>/<topic>`; merge to `main`
@@ -42,7 +42,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 | Platform | Code | CI | Package script | Signed release |
 |----------|------|----|----------------|----------------|
 | macOS | yes | yes | `tools/package-macos.sh` | no (unsigned) |
-| Windows 11 | no | no | no | no |
+| Windows 11 | spike only (`apps/windows/spikes/capture-prober`) | yes (`windows.yml`) | no | no |
 | Linux | no | no | no | no |
 
 ## TODO: shared (unblocks Windows and Linux; do first)
@@ -50,9 +50,14 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 - [ ] Extract `crates/contextgist-core`: plain Rust (no uniffi) exposing
   `tokenize`, `default_config`, `orp_index`; make `contextgist-ffi` a thin uniffi
   wrapper over it. The Windows/Linux Rust shells depend on it directly.
-- [ ] Port the wall-clock `PacingEngine` to Rust once in the core, tested against
-  `apps/macos/Tests/golden.json`, so desktop shells don't each re-port it
-  (macOS may keep its Swift engine, guarded by the existing parity tests).
+- [ ] Desktop Rust shells (Windows, Linux) drive `gist_rsvp::RsvpSession`
+  directly instead of porting `PacingEngine`; golden-test against `golden.json`
+  (macOS keeps its Swift engine, guarded by the parity tests).
+- [ ] **Parity hardening (from `REVIEW_2026-10-21.md`):** Swift durations use
+  `Float` like Rust (Q-01); golden covers every integer WPM 100-1000, a
+  non-default config, oversized tokens, `skip_words`, `set_wpm` and Unicode
+  punctuation (T1-T7); the core applies the 256-byte token split (Q-02),
+  enforces the 512 KiB cap (S-04) and parses as UTF-8 (S-12/Q-13).
 - [ ] Add a CI matrix (`windows-latest`, `ubuntu-latest`) running
   `cargo test --workspace --locked`, with per-platform jobs path-filtered so one
   platform's changes don't gate the others.
@@ -68,7 +73,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 Rationale, phases and numeric exit criteria: [`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md).
 v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
 
-- [ ] **W0** PR #1 `.gitattributes`; PR #3 `windows-latest` CI (path-filtered).
+- [x] **W0** `.gitattributes` (#1) and `windows-latest` CI (#3) merged 2026-10-21. Still to add: `cargo fmt --check`, spike clippy/build (Q-03).
 - [ ] **W0.5** Capture spike: console prober over ~15 apps, numeric go/no-go.
 - [ ] **W1** Read GIST's Windows stack (ADR-015/017/018, bindgen security review),
   then a three-way shell spike (native Rust / WinUI 3 + uniffi-cs / minimal Win32).

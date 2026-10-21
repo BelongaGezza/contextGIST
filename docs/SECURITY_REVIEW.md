@@ -13,9 +13,9 @@ any public distribution.
 Attack surface is genuinely small: no network access, no file I/O, no
 persistence, App Sandbox already enabled with zero extra entitlements, and
 the only external input is text delivered by the OS through the Services
-mechanism. No memory-safety bugs were found — there is no `unsafe` Rust
-anywhere in the dependency chain this crate actually uses
-(`contextgist-ffi`, `gist-model`, `gist-parse-txt`, `gist-rsvp`), and the
+mechanism. No memory-safety bugs were found — the first-party Rust (`contextgist-ffi`,
+`gist-model`, `gist-parse-txt`, `gist-rsvp`) contains no hand-written `unsafe`
+(dependencies do; see the 2026-10-21 update), and the
 Swift code has no force-unwraps and consistently bounds-checks array
 access. Nothing here rises to "vulnerability" in the RCE/injection/auth-
 bypass sense — there's no auth and nothing to inject into. The findings
@@ -184,9 +184,78 @@ be held to, not just "nice to have":
 - No logging of selected text (or anything else) — `grep` for
   `print`/`NSLog`/`os_log`/`Logger` across `apps/macos/Sources` and
   `crates/contextgist-ffi/src` returns nothing.
-- No `unsafe` Rust in the entire dependency chain actually used.
+- No hand-written `unsafe` in the first-party Rust (`contextgist-ffi`, `gist-model`,
+  `gist-parse-txt`, `gist-rsvp`). Dependencies do use `unsafe` (`encoding_rs`,
+  `memchr`, `simdutf8`, `uniffi_core`, `getrandom`, ...) and uniffi's macros
+  generate `unsafe extern "C"` entry points (corrected 2026-10-21).
 - No force-unwraps (`!`/`try!`/`as!`) in the Swift code; every array
   subscript in the pacing/index logic is bounds-checked.
 - Input-only Services registration (`NSSendTypes` only, no
   `NSReturnTypes`) — contextGIST structurally cannot write back to the
   pasteboard or the source document.
+
+## Update — 2026-10-21
+
+Re-reviewed by an independent security specialist; full findings (S-01 to
+S-17) in [`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md). Status of the
+findings above:
+
+- **#1 (selection size, crash-report leak): fixed, with residuals.** The
+  512 KiB cap, off-main tokenizing and `contain()` are in place. Residuals:
+  allocation failure aborts rather than unwinds so `contain` cannot catch it;
+  the pasteboard string is materialised before the cap check (S-11); the Rust
+  core has no cap of its own (S-04); "crash report contains memory contents"
+  is overstated: crash reports carry stack and register state, not a heap dump.
+- **#2 (no zeroing): decision stands, with two qualifications.** "Swap is
+  encrypted" does not by itself cover hibernation images (protection depends
+  on platform and FileVault, unverified). Popup text is also exposed to
+  accessibility clients and screen capture, not only VoiceOver (S-10).
+- **#3 (signing): still open**, and worse than recorded: see #5.
+- **#4 (path dependency): fixed.** Residuals: `upstream-review.sh --record`
+  runs `cargo test` on unreviewed upstream code (S-15) and nothing asserts that
+  the `Cargo.toml` rev equals `UPSTREAM_BASELINE` (S-07).
+
+### 5. [High] Packaged app signed with `get-task-allow`
+
+`dist/macos/contextGIST.dmg` contains an app whose embedded entitlements are
+`{app-sandbox, get-task-allow}` (reviewer decoded the DMG). Xcode injects
+`get-task-allow` for non-distribution signing even in Release. Any process of
+the same user can attach to the app and read the selection from memory, and
+notarization would reject the build. `tools/release-sign.sh` replaces the
+entitlements and is not affected; `tools/package-macos.sh` and the committed
+DMG are. `dist/macos/README.md` calls the build "unsigned"; it is ad-hoc
+signed. **Status: open.** Fix: `CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO` for
+Release, a gate that fails packaging when `get-task-allow` is present, rebuild
+the DMG. Do not distribute the current DMG.
+
+### 6. [Low] Build paths in the shipped binary
+
+The Mach-O embeds `/Users/<name>/...` and `/rustc/<hash>` paths (debug map).
+Strip, remap (`--remap-path-prefix`), build releases in CI, publish a SHA-256.
+**Status: open.**
+
+### 7. [Medium] The shared core has no size cap
+
+`tokenize` uses `ParseLimits::default()` (256 MB); the 512 KiB cap lives only
+in the Swift shell, so every future shell would have to remember it. Enforce it
+in `contextgist-ffi`. **Status: open.**
+
+### 8. [Low] NUL-heavy selections are decoded as UTF-16
+
+Upstream `gist-parse-txt` sniffs UTF-16 before UTF-8, so text with interleaved
+NULs is shown as different text and reaches `encoding_rs`'s `unsafe` code.
+Parse with the named UTF-8 encoding. **Status: open.**
+
+### 9. [Low] Popup text visible beyond the window
+
+The current word is exposed through `.accessibilityLabel`, and the window can
+be screen-captured. `NSWindow.isRestorable` defaults to true (saved state in
+the sandbox container is unverified). Set `isRestorable = false`, consider
+`sharingType = .none`, and disclose. **Status: open.**
+
+### Windows
+
+A Windows version is only planned; see
+[`WINDOWS_PLAN.md`](./WINDOWS_PLAN.md) section 7 (a target baseline, not an
+implemented one) and S-02 to S-06 and S-13/S-14 in the review file for the
+spike's unsafe-code and design issues.
