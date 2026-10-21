@@ -109,6 +109,20 @@ Release-readiness items adopted from upstream GIST's M4/M5 work (reviewed
   contrast check on the ORP letter (mirrors GIST `0e44caa`'s approach).
   Hands-on VoiceOver verification is still needed.
 
+### Added by the 2026-10-21 security and quality review
+
+See [`REVIEW_2026-10-21.md`](./REVIEW_2026-10-21.md). Open items, none yet
+applied:
+
+- [ ] Swift `tokenDurationMs` to `Float`; golden for every integer WPM (Q-01).
+- [ ] Apply upstream's 256-byte token split in the core (Q-02).
+- [ ] Enforce the 512 KiB cap and UTF-8-only parsing in `contextgist-ffi`
+  (S-04, S-12).
+- [ ] Release build without `get-task-allow`; rebuild or retire the committed
+  DMG (S-01).
+- [ ] `cargo fmt` clean and enforced; spike built and linted in CI (Q-03).
+- [ ] Portable `upstream-review.sh` (Q-04).
+
 ### Added by the 2026-10-01 status review
 
 State at review: `main` == `origin/main`, tree clean, 13/13 Rust tests,
@@ -267,7 +281,7 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
 
 ## Phase 5 — Linux
 
-- [ ] Reuse the Tauri shell from Phase 4 where possible; packaging is the
+- [ ] Reuse whichever Rust-side pieces survive the Phase 4 shell spike; packaging is the
   main divergence (target Flatpak for the sandboxing story it gives —
   comparable in spirit to the macOS App Sandbox entitlement).
 - [ ] **Entry point — needs an early spike before committing, flagged as
@@ -292,7 +306,7 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
 - [ ] **Behavioral parity tests**: the golden-file approach from Phase 2
   (same fixed inputs → identical tokenization/ORP/duration output) should
   extend to cover every shipped core (Swift/uniffi, WASM, native Rust in
-  Tauri) as each one comes online — this is the concrete answer to "how do
+  the Windows/Linux shells) as each one comes online — this is the concrete answer to "how do
   we know pacing hasn't silently drifted between platforms," which is
   otherwise just trust.
 - [ ] **Security baseline checklist per platform**, carried from
@@ -300,7 +314,7 @@ Built on Phase 2's WASM core, so no fourth pacing-logic hand-port.
   (or platform-equivalent), no network capability, no telemetry, no
   logging of selected text, input-only (no write-back to clipboard/
   source), memory-safe core. Treat any platform where one of these can't be
-  matched (the Windows clipboard fallback in Phase 4 is the one already
+  matched (the post-v1 Windows Ctrl+C mode in Phase 4 is the one already
   identified) as requiring explicit disclosure, not silent scope creep.
 - [x] **Upstream review built into the development cycle** (2026-09-30):
   `tools/upstream-review.sh` reports GIST changes since `UPSTREAM_BASELINE`,
