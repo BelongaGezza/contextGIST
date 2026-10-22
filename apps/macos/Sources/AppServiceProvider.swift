@@ -13,12 +13,21 @@ final class AppServiceProvider: NSObject {
     static let maxSelectionBytes = 512 * 1024
 
     private var popup: PopupController?
+    private var popupGeneration: UUID?
 
     @objc func readSelection(
         _ pasteboard: NSPasteboard,
         userData: String,
         error: AutoreleasingUnsafeMutablePointer<NSString?>
     ) {
+        // Length-check the raw data before building a String from it (S-11).
+        if let raw = pasteboard.data(forType: .string), raw.count > Self.maxSelectionBytes * 4 {
+            DispatchQueue.main.async { [weak self] in
+                Self.showTooLongAlert()
+                self?.quitIfIdle()
+            }
+            return
+        }
         guard let text = pasteboard.string(forType: .string), !text.isEmpty else {
             error.pointee = "contextGIST: no text was selected."
             // Async so the error is returned to the Services caller first.
@@ -85,7 +94,11 @@ final class AppServiceProvider: NSObject {
     private func show(text: String) {
         NSApp.setActivationPolicy(.accessory)
         NSApp.activate(ignoringOtherApps: true)
+        // A stale close callback must not drop a newer popup (Q-17).
+        let generation = UUID()
+        popupGeneration = generation
         let controller = PopupController(text: text) { [weak self] in
+            guard self?.popupGeneration == generation else { return }
             // Dropping the only reference discards the selection text and
             // its tokenized session — nothing about this reading survives
             // past the window closing. Then quit, on the next run-loop turn

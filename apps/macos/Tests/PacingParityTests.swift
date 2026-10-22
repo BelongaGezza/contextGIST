@@ -200,4 +200,61 @@ final class PacingParityTests: XCTestCase {
         let brk = DisplayToken(FfiToken(text: "", kind: .paragraphBreak))
         XCTAssertEqual(brk.orpParts.focus, "")
     }
+
+    // ── Extended golden (crates/contextgist-ffi/testdata/golden_extended.json) ──
+    // Copy of the Rust core's file; refresh it when the Rust test regenerates it.
+
+    private static func loadExtended() throws -> [String: Any] {
+        let url = try XCTUnwrap(Bundle(for: PacingParityTests.self).url(forResource: "golden_extended", withExtension: "json"))
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    }
+
+    func testExtendedTokensAndDurationsMatchRustCore() throws {
+        let root = try Self.loadExtended()
+        let tokens = tokenize(text: root["text"] as! String).map(DisplayToken.init)
+        let expected = root["tokens"] as! [[String: Any]]
+        XCTAssertEqual(tokens.map(\.text), expected.map { $0["text"] as! String })
+        for cfg in root["configs"] as! [[String: Any]] {
+            var config = defaultConfig()
+            config.pauseSentence = Float(cfg["pauseSentence"] as! Double)
+            config.pauseComma = Float(cfg["pauseComma"] as! Double)
+            config.pauseParagraph = Float(cfg["pauseParagraph"] as! Double)
+            config.pauseNumeral = Float(cfg["pauseNumeral"] as! Double)
+            for row in cfg["durations"] as! [[Any]] {
+                let wpm = UInt32(row[0] as! Int)
+                let ms = (row[1] as! [Int]).map { UInt64($0) }
+                for i in tokens.indices {
+                    XCTAssertEqual(
+                        PacingEngine.tokenDurationMs(tokens: tokens, config: config, wpm: wpm, idx: i), ms[i],
+                        "\(cfg["name"] as! String) wpm \(wpm) token \(i)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testExtendedSkipWordsMatchRustCore() throws {
+        let root = try Self.loadExtended()
+        let tokens = tokenize(text: root["text"] as! String).map(DisplayToken.init)
+        for c in root["skip"] as! [[String: Any]] {
+            let from = c["from"] as! Int, n = c["n"] as! Int, dir = c["direction"] as! Int
+            XCTAssertEqual(skipWords(tokens: tokens, from: from, by: n, direction: dir), c["to"] as! Int, "\(c)")
+        }
+    }
+
+    func testOversizedWordsSplitAtRustChunkBoundaries() throws {
+        let root = try Self.loadExtended()
+        let inputs: [String: String] = [
+            "ascii300": String(repeating: "x", count: 300),
+            "e-acute200": String(repeating: "é", count: 200),
+            "combining-run": "e" + String(repeating: "\u{0301}", count: 400),
+            "thumbs40": String(repeating: "👍🏽", count: 40),
+            "flags40": String(repeating: "🇬🇧", count: 40),
+        ]
+        for c in root["oversized"] as! [[String: Any]] {
+            let label = c["label"] as! String
+            let got = tokenize(text: try XCTUnwrap(inputs[label])).map { $0.text.utf8.count }
+            XCTAssertEqual(got, c["chunkBytes"] as! [Int], label)
+        }
+    }
 }
