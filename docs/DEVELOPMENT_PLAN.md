@@ -47,7 +47,7 @@ either.
 | CI | `ci.yml` + `windows.yml`; fmt, clippy, tests, `cargo deny`, XCTest, weekly upstream check; Dependabot on |
 | Windows | Plan merged; capture spike hardened on `platform/windows/spike-fixes` (PR pending); no go/no-go data yet |
 | Linux, iOS/iPadOS, WASM, Chrome | Not started |
-| Release | Blocked: Apple Developer account (signing), S-01 DMG rebuild, no `SECURITY.md`, `main` unprotected |
+| Release | Blocked: Apple Developer account (signing), S-01 DMG rebuild, `main` unprotected (`ci-ok` check now exists to require) |
 
 ### Next actions, in order
 
