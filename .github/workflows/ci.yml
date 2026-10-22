@@ -147,3 +147,21 @@ jobs:
             -configuration Debug \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+  # Single required check for branch protection. Always runs, and fails if any
+  # needed job failed or was cancelled; a job that was legitimately skipped
+  # (the schedule-only `upstream`) is fine. Require this one check rather than
+  # the individual jobs.
+  ci-ok:
+    if: always()
+    needs: [rust, deny, upstream, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac

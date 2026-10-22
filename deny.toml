@@ -7,9 +7,15 @@
 # (`--exclude-dev` so test-only crates don't count against the policy.)
 
 [graph]
-# contextGIST is macOS-only today; checking other targets' platform crates
-# would only add noise. Widen this when Phase 1+ targets land.
-targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+# macOS plus the Windows and Linux desktop targets the shared core is built for
+# (docs/PLATFORMS.md), so a platform-only dependency is still policy-checked.
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
 
 [licenses]
 # Same allow-list as GIST, minus what contextGIST's graph doesn't use
