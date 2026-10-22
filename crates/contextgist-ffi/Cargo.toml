@@ -24,6 +24,7 @@ crate-type = ["staticlib", "rlib"]
 # Reused as-is from GIST (github.com/BelongaGezza/gist) via a rev-pinned git
 # dependency declared in the workspace Cargo.toml — see CLAUDE.md's
 # "Relationship to GIST" section. No local fork/copy.
+contextgist-core = { path = "../contextgist-core" }
 gist-model     = { workspace = true }
 gist-parse-txt = { workspace = true }
 gist-rsvp      = { workspace = true }

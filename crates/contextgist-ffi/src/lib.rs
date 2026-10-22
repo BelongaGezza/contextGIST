@@ -10,40 +10,23 @@
 
 uniffi::setup_scaffolding!();
 
-// `contain` relies on `catch_unwind`, which does nothing under `panic = "abort"`
-// (the panic would then abort the process and write a crash report that can
-// contain the selection). Fail the build instead of silently losing that.
-#[cfg(panic = "abort")]
-compile_error!("contextgist-ffi requires panic = \"unwind\" (see `contain`)");
-
-/// Largest selection (UTF-8 bytes) `tokenize` accepts; larger input yields no
-/// tokens. Same limit the macOS shell enforces (`maxSelectionBytes`), enforced
-/// here too so every platform shell inherits it.
-pub const MAX_SELECTION_BYTES: usize = 512 * 1024;
+#[cfg(test)]
+use contextgist_core::skip_words;
+use contextgist_core::tokenize as tokenize_inner;
+pub use contextgist_core::MAX_SELECTION_BYTES;
 
 // ── Panic containment ────────────────────────────────────────────────────────
 
 /// Runs `f`, turning a panic into `fallback` instead of letting it reach
 /// Swift. uniffi already catches panics at the boundary, but for these
 /// infallible exports the generated Swift calls `try! rustCall(...)`, so a
-/// caught panic still becomes a Swift trap: a crash, and a crash report
-/// written while the selection is in memory (docs/SECURITY_REVIEW.md
-/// finding #1). Degrading to an empty/neutral result keeps the popup alive.
-///
-/// Also installs a panic hook that prints nothing, once per process. Rust's
-/// default hook writes the panic message to stderr, and some std panic
-/// messages quote the string being operated on (e.g. `str` slicing's "byte
-/// index N is not a char boundary ... of `<text>`"), which would put
-/// selected text somewhere it could be captured.
+/// caught panic still becomes a Swift trap (see `contextgist_core::contain`).
 fn contain<T>(fallback: T, f: impl FnOnce() -> T + std::panic::UnwindSafe) -> T {
     // Not under `cargo test`: the hook is process-wide and would also
     // swallow the test harness's own assertion messages.
     #[cfg(not(test))]
-    {
-        static SILENCE_PANICS: std::sync::Once = std::sync::Once::new();
-        SILENCE_PANICS.call_once(|| std::panic::set_hook(Box::new(|_| {})));
-    }
-    std::panic::catch_unwind(f).unwrap_or(fallback)
+    contextgist_core::silence_panic_messages();
+    contextgist_core::contain(fallback, f)
 }
 
 // ── Token ────────────────────────────────────────────────────────────────────
@@ -80,38 +63,6 @@ impl From<gist_model::Token> for FfiToken {
     }
 }
 
-/// Tokenize `text` with the upstream crates, without panic containment.
-///
-/// - Input over [`MAX_SELECTION_BYTES`] yields no tokens (checked before any
-///   parsing).
-/// - Parsed as UTF-8 only. `Auto` encoding detection would reinterpret a
-///   NUL-heavy selection as UTF-16 and show different text than was selected.
-///   (A leading U+FEFF is dropped, as for a BOM.)
-/// - Word tokens over `gist_rsvp::MAX_TOKEN_BYTES` (256) are split exactly as
-///   `RsvpSession::new` splits them, so every shell sees the same token
-///   indices that `RsvpSession` uses.
-fn tokenize_inner(text: &str) -> Vec<gist_model::Token> {
-    if text.len() > MAX_SELECTION_BYTES {
-        return Vec::new();
-    }
-    let limits = gist_model::ParseLimits {
-        max_bytes: MAX_SELECTION_BYTES,
-        ..gist_model::ParseLimits::default()
-    };
-    match gist_parse_txt::parse_with_encoding(
-        text.as_bytes(),
-        "selection",
-        &limits,
-        gist_parse_txt::EncodingChoice::Named("utf-8"),
-    ) {
-        Ok(parsed) => {
-            gist_rsvp::RsvpSession::new(parsed.document.token_stream, gist_rsvp::Config::default())
-                .tokens
-        }
-        Err(_) => Vec::new(),
-    }
-}
-
 /// Tokenize raw selected text as GIST's plain-text importer would
 /// (blank-line-separated paragraphs, whitespace-split words — see
 /// `gist_parse_txt::parse` and `Document::build_token_stream` in
@@ -128,34 +79,6 @@ pub fn tokenize(text: String) -> Vec<FfiToken> {
             .map(FfiToken::from)
             .collect()
     })
-}
-
-/// Index of the token `n` *words* away from `from` in direction `forward`
-/// (paragraph/section breaks are stepped over but not counted), clamped to
-/// the token range. Mirrors `gist_rsvp::RsvpSession::back_words` and the
-/// Swift `skipWords` (which adds the forward direction).
-pub fn skip_words(tokens: &[gist_model::Token], from: usize, n: usize, forward: bool) -> usize {
-    let last = tokens.len().saturating_sub(1);
-    let mut target = from.min(last);
-    let mut skipped = 0;
-    while skipped < n {
-        let next = if forward {
-            if target >= last {
-                break;
-            }
-            target + 1
-        } else {
-            if target == 0 {
-                break;
-            }
-            target - 1
-        };
-        target = next;
-        if tokens[target].kind == gist_model::TokenKind::Word {
-            skipped += 1;
-        }
-    }
-    target
 }
 
 // ── Pacing config ────────────────────────────────────────────────────────────
@@ -186,7 +109,7 @@ impl From<gist_rsvp::Config> for FfiRsvpConfig {
 /// GIST's default pacing config (250 WPM, etc — see `gist_rsvp::Config::default`).
 #[uniffi::export]
 pub fn default_config() -> FfiRsvpConfig {
-    gist_rsvp::Config::default().into()
+    contextgist_core::default_config().into()
 }
 
 /// Byte offset of a word's Optimal Recognition Point, for centering the
@@ -194,7 +117,7 @@ pub fn default_config() -> FfiRsvpConfig {
 /// A panic yields 0 (the word's first character) rather than a crash.
 #[uniffi::export]
 pub fn orp_index(word: String) -> u32 {
-    contain(0, move || gist_rsvp::orp_index(&word) as u32)
+    contain(0, move || contextgist_core::orp_index(&word) as u32)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
