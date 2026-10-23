@@ -36,6 +36,12 @@ if [[ "$APP_PATH" != *.app ]]; then
     exit 1
 fi
 
+# S-01: refuse to package a debuggable build.
+if codesign -d --entitlements - "$APP_PATH" 2>/dev/null | grep -q 'get-task-allow'; then
+    echo "ERROR: '$APP_PATH' carries com.apple.security.get-task-allow (a Debug build, or Release without CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)" >&2
+    exit 1
+fi
+
 NOTICES="$APP_PATH/Contents/Resources/ThirdPartyNotices.txt"
 if [ ! -f "$NOTICES" ]; then
     echo "ERROR: $NOTICES is missing — rebuild after 'xcodegen generate' so the Resources phase picks it up" >&2

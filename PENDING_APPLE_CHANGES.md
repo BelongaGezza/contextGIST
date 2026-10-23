@@ -6,36 +6,25 @@ macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
 [`docs/REVIEW_2026-10-21.md`](docs/REVIEW_2026-10-21.md). Last updated
 2026-10-21; delete an item when it lands and is verified on a Mac.
 
-## Parity with the Rust core (core side merged in PR #6)
+## Done on a Mac (2026-10-22, branch `mac/parity-hardening`, 14 XCTests pass)
 
-The Rust core enforces the 512 KiB cap, parses as UTF-8 only, and returns word
-tokens split at 256 bytes. The exported uniffi surface is unchanged, so the
-generated Swift bindings are unchanged. `apps/macos/Tests/golden.json` is
-unchanged and still passes. To do on a Mac:
-
-1. **`tokenDurationMs` must use `Float`, not `Double`** (`RsvpView.swift`,
-   Q-01). Rust computes `((base_ms as f32) * mult).round()`. With `Double`, the
-   1.3 clause pause differs by 1 ms at some WPMs (e.g. 110: Rust 709, Swift 708).
-   Use `UInt64((Float(baseMs) * multiplier).rounded())` with `multiplier: Float`.
-2. **Adopt `crates/contextgist-ffi/testdata/golden_extended.json`** in
-   `Tests/PacingParityTests.swift` (copy it into the test bundle or read it by
-   path). It covers every integer WPM 100-1000 under two configs, Unicode
-   punctuation tokens, oversized-word chunk lengths, `skip_words` and `set_wpm`
-   results. Step 1 makes the duration checks pass; they fail before it.
-3. **Check long words** now arrive as <=256-byte tokens: confirm the popup
-   renders them sensibly (Q-15 scales/clips very long words).
-4. Run `./tools/gen-bindings.sh && cd apps/macos && xcodegen generate &&
-   xcodebuild test -scheme contextGIST` and confirm the generated bindings have
-   no diff against the previous output.
+- Q-01: `tokenDurationMs` uses `Float`. Adopting `golden_extended.json` (copy
+  in `apps/macos/Tests/`) also exposed a second divergence, fixed: `endsSentence`,
+  `endsClause` and `isNumeral` now walk unicode scalars like Rust `char`s, so a
+  token such as `x.` + combining acute is still a sentence end.
+- Extended-golden tests: tokens, all-WPM durations under two configs, skip
+  words, oversized-word chunk bytes. `setWpm` cases not yet covered.
+- S-01 (build side): Release sets `CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO`
+  (verified: no `get-task-allow`); `build-dmg.sh` refuses an app that has it.
+  **The committed DMG in `dist/macos/` is still the old one: rebuild or retire it.**
+- S-10 `isRestorable = false`; S-11 raw pasteboard size check; Q-17 stale
+  close-callback guard.
+- Still to check by eye: long words render sensibly in the popup (Q-15).
 
 ## Other Apple-side items from the review (not yet started)
 
-- Release build without `get-task-allow` (S-01): `CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO`
-  for Release, a gate in `build-dmg.sh`/`release-sign.sh` that fails when the
-  entitlement is present, then rebuild or retire the committed DMG.
-- `NSWindow.isRestorable = false`, consider `sharingType = .none` (S-10).
-- Pasteboard length check before string conversion (S-11).
-- `popup === controller` guard in `onClose` (Q-17).
+- Rebuild/retire the committed DMG (S-01, S-09); consider `sharingType = .none` (S-10);
+  `release-sign.sh` entitlement gate.
 - Monotonic clock instead of `Date()` (Q-14); weak self around `Task.sleep` (Q-21).
 - Long-word scaling (Q-15), RTL/CJK width maths (Q-16), a status result from
   `tokenize` instead of an empty list (Q-18; changes the uniffi signature).

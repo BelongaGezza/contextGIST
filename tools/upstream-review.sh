@@ -112,7 +112,11 @@ if [ "$MODE" = record ]; then
     CARGO_TOML="$REPO_ROOT/Cargo.toml"
     cp "$CARGO_TOML" "$CARGO_TOML.bak"; cp "$REPO_ROOT/Cargo.lock" "$REPO_ROOT/Cargo.lock.bak"
     restore() { mv "$CARGO_TOML.bak" "$CARGO_TOML"; mv "$REPO_ROOT/Cargo.lock.bak" "$REPO_ROOT/Cargo.lock"; }
-    sed -i '' -E "/^gist-(model|parse-txt|rsvp) .*BelongaGezza\/gist/ s/rev = \"[0-9a-f]+\"/rev = \"$HEAD_SHA\"/" "$CARGO_TOML"
+    # Portable (BSD and GNU sed): no `sed -i`, write a temp file and move it over.
+    tmp_toml="$(mktemp)"
+    sed -E "/^gist-(model|parse-txt|rsvp) .*BelongaGezza\/gist/ s/rev = \"[0-9a-f]+\"/rev = \"$HEAD_SHA\"/" "$CARGO_TOML" > "$tmp_toml"
+    cat "$tmp_toml" > "$CARGO_TOML"
+    rm -f "$tmp_toml"
     echo "→ Running contextGIST's tests against GIST ${HEAD_SHA:0:7} ($BRANCH)..."
     if ! (cd "$REPO_ROOT" && cargo test --workspace); then
         restore

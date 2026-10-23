@@ -17,3 +17,17 @@
 # Unpacked/intermediate build trees for other platforms; installers + INSTALL.txt are committed
 /dist/windows/*/
 /dist/linux/*/
+
+# Never commit signing material, backups, or raw capture data (S-17)
+*.p12
+*.pfx
+*.cer
+*.key
+*.pem
+*.mobileprovision
+*.provisionprofile
+*.bak
+*.orig
+*.csv
+.env
+.env.*

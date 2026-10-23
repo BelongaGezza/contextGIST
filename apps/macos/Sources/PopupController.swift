@@ -22,6 +22,7 @@ final class PopupController: NSObject, NSWindowDelegate {
         window.center()
         window.level = .floating
         window.isReleasedWhenClosed = false
+        window.isRestorable = false  // S-10: no state restoration of the reading window
         self.window = window
 
         super.init()

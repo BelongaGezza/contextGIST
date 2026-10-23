@@ -1,0 +1,13 @@
+[package]
+name = "contextgist-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+repository.workspace = true
+
+[dependencies]
+# Rev-pinned git dependencies on GIST; see the workspace Cargo.toml.
+gist-model     = { workspace = true }
+gist-parse-txt = { workspace = true }
+gist-rsvp      = { workspace = true }
