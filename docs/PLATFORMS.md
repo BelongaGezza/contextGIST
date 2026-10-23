@@ -50,7 +50,7 @@ dist/{macos,windows,linux} that platform's final installer + INSTALL.txt
 
 ## TODO: shared (unblocks Windows and Linux; do first)
 
-- [ ] Extract `crates/contextgist-core`: plain Rust (no uniffi) exposing
+- [x] (2026-10-22) Extract `crates/contextgist-core`: plain Rust (no uniffi) exposing
   `tokenize`, `default_config`, `orp_index`; make `contextgist-ffi` a thin uniffi
   wrapper over it. The Windows/Linux Rust shells depend on it directly.
 - [ ] Desktop Rust shells (Windows, Linux) drive `gist_rsvp::RsvpSession`
@@ -85,7 +85,7 @@ v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
   then a three-way shell spike (native Rust / WinUI 3 + uniffi-cs / minimal Win32).
   Decide the process model (launcher-per-invocation vs resident). Write the
   Windows section of `PRIVACY.md` before coding.
-- [ ] **W2** `contextgist-core` extraction with a shared `skip_words` helper and
+- [x] **W2** `contextgist-core` extraction (done 2026-10-22; generated Swift bindings byte-identical) with a shared `skip_words` helper and
   oversized-token golden cases; keep Swift/golden paths unchanged until a macOS session.
 - [ ] **W3** `apps/windows`: popup, `RegisterHotKey`, UIA capture (password refusal,
   512 KiB cap, worker thread + timeout), manual paste, per-failure messages.

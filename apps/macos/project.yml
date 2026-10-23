@@ -19,6 +19,9 @@ settings:
       ONLY_ACTIVE_ARCH: YES
     Release:
       ONLY_ACTIVE_ARCH: NO
+      # S-01: never ship com.apple.security.get-task-allow (lets any same-user
+      # process attach to the app and read the selection from memory).
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
 targets:
   contextGIST:
@@ -105,7 +108,10 @@ targets:
         type: group
         excludes:
           - golden.json
+          - golden_extended.json
       - path: Tests/golden.json
+        buildPhase: resources
+      - path: Tests/golden_extended.json
         buildPhase: resources
       - path: Sources/RsvpView.swift
       - path: Generated

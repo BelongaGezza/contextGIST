@@ -108,7 +108,10 @@ new source file (XcodeGen needs to re-scan `Sources/`).
 
 ## Architecture at a glance
 
-- **`crates/contextgist-ffi`** — the entire Rust surface: three pure,
+- **`crates/contextgist-core`** — plain Rust (no uniffi): `tokenize` (512 KiB cap,
+  UTF-8 only, 256-byte split), `skip_words`, `contain`, `default_config`, `orp_index`.
+  Windows/Linux shells depend on it directly; `contextgist-ffi` wraps it.
+- **`crates/contextgist-ffi`** — the entire uniffi surface: three pure,
   one-shot uniffi-exported functions (`tokenize`, `default_config`,
   `orp_index`), no stateful session object, no I/O. Called once per popup,
   at load time only — see "Why playback isn't driven through FFI per tick"

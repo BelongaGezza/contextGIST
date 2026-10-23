@@ -105,25 +105,26 @@ struct PacingEngine {
         let baseMs = 60_000 / UInt64(clampedWpm)
         let token = tokens[idx]
 
-        let multiplier: Double
+        let multiplier: Float
         switch token.kind {
         case .paragraphBreak, .sectionBreak:
-            multiplier = Double(config.pauseParagraph)
+            multiplier = Float(config.pauseParagraph)
         case .word:
             let text = token.text
             if isNumeral(text) {
-                let punct = endsSentence(text) ? Double(config.pauseSentence)
-                    : (endsClause(text) ? Double(config.pauseComma) : 1.0)
-                multiplier = max(Double(config.pauseNumeral), punct)
+                let punct = endsSentence(text) ? Float(config.pauseSentence)
+                    : (endsClause(text) ? Float(config.pauseComma) : 1.0)
+                multiplier = max(Float(config.pauseNumeral), punct)
             } else if endsSentence(text) {
-                multiplier = Double(config.pauseSentence)
+                multiplier = Float(config.pauseSentence)
             } else if endsClause(text) {
-                multiplier = Double(config.pauseComma)
+                multiplier = Float(config.pauseComma)
             } else {
                 multiplier = 1.0
             }
         }
-        return UInt64((Double(baseMs) * multiplier).rounded())
+        // f32 math, as in gist-rsvp: Double differs by 1 ms at some WPMs (Q-01).
+        return UInt64((Float(baseMs) * multiplier).rounded())
     }
 
     static func tokenAtElapsed(
@@ -143,23 +144,35 @@ struct PacingEngine {
         return (max(tokens.count - 1, 0), 0)
     }
 
-    private static func endsSentence(_ text: String) -> Bool {
-        let trimmed = text.reversed().drop {
-            !($0.isLetter || $0.isNumber) && $0 != "." && $0 != "!" && $0 != "?"
+    // These walk unicode scalars, not Characters, because gist-rsvp walks Rust
+    // `char`s: "x.\u{0301}" is one Character (so `last == "."` would miss it)
+    // but ends in a '.' scalar after the trailing-mark trim (golden_extended).
+    private static func isRustAlphanumeric(_ s: Unicode.Scalar) -> Bool {
+        if s.properties.isAlphabetic { return true }
+        switch s.properties.generalCategory {
+        case .decimalNumber, .letterNumber, .otherNumber: return true
+        default: return false
         }
-        guard let last = trimmed.first else { return false }
+    }
+
+    private static func endsSentence(_ text: String) -> Bool {
+        let last = text.unicodeScalars.reversed().first {
+            isRustAlphanumeric($0) || $0 == "." || $0 == "!" || $0 == "?"
+        }
         return last == "." || last == "!" || last == "?"
     }
 
     private static func endsClause(_ text: String) -> Bool {
-        guard let last = text.last else { return false }
+        guard let last = text.unicodeScalars.last else { return false }
         return last == "," || last == ";" || last == ":"
     }
 
     private static func isNumeral(_ text: String) -> Bool {
-        !text.isEmpty
-            && text.allSatisfy { ($0.isASCII && $0.isNumber) || $0 == "." || $0 == "," }
-            && text.contains { $0.isASCII && $0.isNumber }
+        let scalars = text.unicodeScalars
+        let isDigit = { (s: Unicode.Scalar) in s.value >= 0x30 && s.value <= 0x39 }
+        return !scalars.isEmpty
+            && scalars.allSatisfy { isDigit($0) || $0 == "." || $0 == "," }
+            && scalars.contains(where: isDigit)
     }
 }
 
