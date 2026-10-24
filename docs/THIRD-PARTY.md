@@ -11,7 +11,7 @@ no vendored SDKs.
 list ships inside the app as `Contents/Resources/ThirdPartyNotices.txt`.
 
 **Methodology:**
-- Regenerated 2026-10-19 from `Cargo.lock`: every crate reachable from
+- Regenerated 2026-10-24 from `Cargo.lock`: every crate reachable from
   `contextgist-ffi` via `cargo tree -e normal`, deduplicated, with each
   crate's declared licence from `cargo metadata`. 58 external crates.
 - uniffi's proc-macro crates only run at compile time and aren't part of
@@ -59,7 +59,7 @@ list ships inside the app as `Contents/Resources/ThirdPartyNotices.txt`.
 | serde | 1.0.229 | MIT OR Apache-2.0 | <https://github.com/serde-rs/serde> |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 | <https://github.com/serde-rs/serde> |
 | serde_derive | 1.0.229 | MIT OR Apache-2.0 | <https://github.com/serde-rs/serde> |
-| serde_json | 1.0.151 | MIT OR Apache-2.0 | <https://github.com/serde-rs/json> |
+| serde_json | 1.0.154 | MIT OR Apache-2.0 | <https://github.com/serde-rs/json> |
 | serde_spanned | 1.1.1 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> |
 | simdutf8 | 0.1.5 | MIT OR Apache-2.0 | <https://github.com/rusticstuff/simdutf8> |
 | siphasher | 1.0.4 | MIT OR Apache-2.0 | <https://github.com/jedisct1/rust-siphash> |
