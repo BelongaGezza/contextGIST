@@ -19,14 +19,16 @@ macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
   **The committed DMG in `dist/macos/` is still the old one: rebuild or retire it.**
 - S-10 `isRestorable = false`; S-11 raw pasteboard size check; Q-17 stale
   close-callback guard.
-- Still to check by eye: long words render sensibly in the popup (Q-15).
+- Q-15 (2026-10-25): long words overflowed and were truncated (`Pneumono…icros`);
+  `WordDisplay` now scales the word to fit, keeping the focal letter centred.
+  Fix built and installed; by-eye re-check of the fix still to confirm.
 
 ## Other Apple-side items from the review (not yet started)
 
 - Rebuild/retire the committed DMG (S-01, S-09); consider `sharingType = .none` (S-10);
   `release-sign.sh` entitlement gate.
 - Monotonic clock instead of `Date()` (Q-14); weak self around `Task.sleep` (Q-21).
-- Long-word scaling (Q-15), RTL/CJK width maths (Q-16), a status result from
+- RTL/CJK width maths (Q-16), a status result from
   `tokenize` instead of an empty list (Q-18; changes the uniffi signature).
 - Portable `tools/upstream-review.sh` (Q-04) is shell, not Apple-specific, but
   `--record` should be verified on macOS after the change (BSD `sed` path).
