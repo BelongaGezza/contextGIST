@@ -4,9 +4,18 @@ Changes needed in `apps/macos/` (Swift, Xcode project, Info.plist, signing)
 that were found in non-macOS sessions and must be made and verified on the
 macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
 [`docs/REVIEW_2026-10-21.md`](docs/REVIEW_2026-10-21.md). Last updated
-2026-10-21; delete an item when it lands and is verified on a Mac.
+2026-10-25; delete an item when it lands and is verified on a Mac.
 
-## Done on a Mac (2026-10-22, branch `mac/parity-hardening`, 14 XCTests pass)
+## Verified by hand on a Mac (2026-10-25, Release build of `main` at `b2bff15`, M1 Pro)
+
+Services flow, popup playback and controls (Space, arrows, WPM slider, Esc),
+pacing across sentence/clause/number tokens (Q-01), the over-512 KiB alert
+(S-11) and the long-word fix (Q-15, PR #13) all passed by eye. The installed
+Release app has no `get-task-allow` (S-01 build side). **Not exercised by hand:**
+S-10 (`isRestorable`) and Q-17 (stale close callback); both are covered only by
+code review and CI.
+
+## Landed on a Mac (2026-10-22, branch `mac/parity-hardening`, 14 XCTests pass)
 
 - Q-01: `tokenDurationMs` uses `Float`. Adopting `golden_extended.json` (copy
   in `apps/macos/Tests/`) also exposed a second divergence, fixed: `endsSentence`,
@@ -19,9 +28,9 @@ macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
   **The committed DMG in `dist/macos/` is still the old one: rebuild or retire it.**
 - S-10 `isRestorable = false`; S-11 raw pasteboard size check; Q-17 stale
   close-callback guard.
-- Q-15 (2026-10-25): long words overflowed and were truncated (`Pneumono…icros`);
+- Q-15 (2026-10-25, PR #13): long words were truncated (`Pneumono…icros`);
   `WordDisplay` now scales the word to fit, keeping the focal letter centred.
-  Fix built and installed; by-eye re-check of the fix still to confirm.
+  Verified by eye. Upstream GIST may have the same bug: BelongaGezza/gist#131.
 
 ## Other Apple-side items from the review (not yet started)
 
