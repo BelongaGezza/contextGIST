@@ -373,14 +373,25 @@ private struct WordDisplay: View {
         let parts = token?.orpParts ?? (prefix: "", focus: "", suffix: "")
         let prefixWidth = CGFloat(parts.prefix.count) * wordDisplayCharWidth
         let suffixWidth = CGFloat(parts.suffix.count) * wordDisplayCharWidth
-        HStack(spacing: 0) {
-            Text(parts.prefix)
-            Text(parts.focus).foregroundStyle(.red)
-            Text(parts.suffix)
+        // The focal glyph sits at the container's center, so the longer side
+        // of the word (plus half the focal glyph) must fit in half the width.
+        // Long words (the tokenizer allows up to 256 bytes) shrink to fit
+        // instead of being truncated by SwiftUI; short words are unscaled.
+        let longestHalf = max(prefixWidth, suffixWidth) + wordDisplayCharWidth / 2
+        GeometryReader { geo in
+            let scale = min(1, geo.size.width / 2 / longestHalf)
+            HStack(spacing: 0) {
+                Text(parts.prefix)
+                Text(parts.focus).foregroundStyle(.red)
+                Text(parts.suffix)
+            }
+            .font(wordDisplayFont)
+            .fixedSize()
+            .scaleEffect(scale)
+            .offset(x: (suffixWidth - prefixWidth) / 2 * scale)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .font(wordDisplayFont)
-        .offset(x: (suffixWidth - prefixWidth) / 2)
-        .frame(maxWidth: .infinity, minHeight: 60)
+        .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 60)
         // VoiceOver: read the word as one element, not three fragments
         // split at the ORP letter. `.updatesFrequently` stops VoiceOver
         // from announcing every word change during playback (at 250+ WPM
