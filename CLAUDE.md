@@ -150,9 +150,9 @@ the engineering baseline.
   (asserted in CI; no unreviewed upstream changes as of 2026-10-21).
 - **macOS app:** the Services flow is confirmed hands-on (popup plays, close
   discards text, the process exits when idle). `contextGISTTests` (11 parity
-  tests against `apps/macos/Tests/golden.json`) runs in CI. Not yet verified
-  on a Mac since the Rust-core changes of PR #6: see `PENDING_APPLE_CHANGES.md`
-  (Swift `Float` durations, adopting `golden_extended.json`). Builds are
+  tests against `apps/macos/Tests/golden.json`) runs in CI (14 tests now).
+  The Rust-core and Swift parity changes were verified by hand on a Mac on
+  2026-10-25 (see `PENDING_APPLE_CHANGES.md`). Builds are
   unsigned; the committed DMG carries `get-task-allow` and must not be
   distributed (S-01). Developer ID signing/notarization is blocked on an Apple
   Developer account.
