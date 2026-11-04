@@ -25,4 +25,6 @@ rm -rf "$OUT/contextGIST.app"
 ditto "$BUILD/Build/Products/Release/contextGIST.app" "$OUT/contextGIST.app"
 "$SCRIPT_DIR/build-dmg.sh" "$OUT/contextGIST.app" "$OUT/contextGIST.dmg"
 cp "$SCRIPT_DIR/dmg/INSTALL.txt" "$OUT/INSTALL.txt"
+# Publish the hash alongside the DMG so recipients can verify it (S-09).
+(cd "$OUT" && shasum -a 256 contextGIST.dmg > SHA256SUMS)
 echo "✓ dist/macos ready:"; ls -lh "$OUT"

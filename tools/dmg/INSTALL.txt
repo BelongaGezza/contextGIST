@@ -9,27 +9,40 @@ INSTALL
   1. Drag contextGIST.app onto the Applications shortcut in this window.
   2. Eject this disk image.
   3. This build is NOT signed or notarized yet, so Gatekeeper will block the
-     first launch. Either:
-       - open Terminal and run:
-           xattr -dr com.apple.quarantine /Applications/contextGIST.app
-       - or try to open the app once, then go to System Settings ->
-         Privacy & Security and click "Open Anyway".
+     first launch. To allow it:
+       - double-click contextGIST in /Applications (macOS will refuse), then
+         go to System Settings -> Privacy & Security, scroll down and click
+         "Open Anyway", and confirm.
+     Only do this for a copy you got from a source you trust. If a SHA256SUMS
+     file came with the download, check it first:
+           shasum -a 256 contextGIST.dmg
   4. Launch it once (double-click it in /Applications). Nothing visible
      happens - it has no Dock icon or window - and it quits itself after
      about 10 seconds. That registers the Services item.
-  5. Register it with the Services menu. In Terminal:
-       /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/contextGIST.app
-       /System/Library/CoreServices/pbs -flush
-     If the item still doesn't appear, log out and back in.
 
 USE
   Select text -> right-click -> Services -> Speed Read with contextGIST.
   To assign a keyboard shortcut: System Settings -> Keyboard -> Keyboard
   Shortcuts... -> Services -> Text.
 
+IF THE MENU ITEM DOES NOT APPEAR
+  Most apps pick it up after step 4. If yours doesn't, in Terminal:
+       /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/contextGIST.app
+       /System/Library/CoreServices/pbs -flush
+  If it still isn't there, log out and back in. As a last resort for a
+  Gatekeeper block that "Open Anyway" does not clear (it removes a safety
+  check, so only for a copy you trust):
+       xattr -dr com.apple.quarantine /Applications/contextGIST.app
+
 REMOVE
   Quit it if running, then drag /Applications/contextGIST.app to the Trash.
-  contextGIST stores nothing else on your Mac.
+  That is all that is needed: contextGIST stores nothing on your Mac. The
+  Services item disappears by itself (log out and back in if it lingers).
+  Optional, for zero trace - macOS creates an empty sandbox folder for the
+  app. In Terminal:
+       rm -rf "$HOME/Library/Containers/com.contextgist.macos"
+  If the app crashed, a crash report in ~/Library/Logs/DiagnosticReports may
+  contain the text you had selected; delete it before sharing anything.
 
 More detail: docs/MACOS_GUIDE.md in the source repo,
 https://github.com/BelongaGezza/contextGIST
