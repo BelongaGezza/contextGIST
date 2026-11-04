@@ -24,7 +24,7 @@ proven with the capture-prober spike as a stand-in payload.
       --release` for x64, stage files, produce `dist/windows/*.zip`, write
       `SHA256SUMS`. No absolute paths; `rustup target add` inside the script, not
       in `rust-toolchain.toml`.
-- [ ] **[Win]** (zip + per-user install.cmd/uninstall.cmd prototyped and tested; MSIX, winget, Inno Setup still to compare) Compare install formats with the prototype and record the
+- [x] **[Win]** (compared in `docs/WINDOWS_INSTALL_OPTIONS.md`; MSIX and winget installs still unverified, need admin; Inno Setup/WiX not built) Compare install formats with the prototype and record the
       trade-offs: (a) zip + `INSTALL.txt`, (b) per-user MSIX, (c) winget manifest
       pointing at a GitHub Release, (d) Inno Setup / WiX per-user installer.
       Criteria: one-click, SmartScreen behaviour when unsigned, clean uninstall,

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.9.0.schema.json
+# TEMPLATE (singleton manifest) for the winget-pkgs community repo. Placeholders
+# in <angle brackets> are filled at release time. Zip + nested portable: winget
+# extracts the exe, links it onto PATH, and removes it on uninstall; there is no
+# Start menu entry or tray registration (use the MSIX or installer for those).
+PackageIdentifier: BelongaGezza.contextGIST
+PackageVersion: 0.0.1
+PackageLocale: en-US
+Publisher: BelongaGezza
+PackageName: contextGIST
+License: MIT
+ShortDescription: Speed-read selected text, one word at a time, in a small popup.
+Installers:
+- Architecture: x64
+  InstallerType: zip
+  NestedInstallerType: portable
+  NestedInstallerFiles:
+  - RelativeFilePath: bin\capture-prober.exe
+    PortableCommandAlias: contextgist
+  InstallerUrl: https://github.com/BelongaGezza/contextGIST/releases/download/windows-v0.0.1/contextGIST-0.0.1-x64.zip
+  InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: singleton
+ManifestVersion: 1.9.0
