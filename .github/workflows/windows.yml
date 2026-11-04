@@ -10,6 +10,8 @@ on:
     paths:
       - "crates/**"
       - "apps/windows/**"
+      - "tools/package-windows.ps1"
+      - "tools/windows/**"
       - "apps/macos/Tests/golden.json"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -21,6 +23,8 @@ on:
     paths:
       - "crates/**"
       - "apps/windows/**"
+      - "tools/package-windows.ps1"
+      - "tools/windows/**"
       - "apps/macos/Tests/golden.json"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -71,3 +75,22 @@ jobs:
       - run: cargo fmt --manifest-path apps/windows/spikes/capture-prober/Cargo.toml --check
       - run: cargo clippy --workspace --locked --all-targets -- -D warnings
       - run: cargo clippy --manifest-path apps/windows/spikes/capture-prober/Cargo.toml --locked --all-targets -- -D warnings
+      # Packaging prototype: build the zip, then install and uninstall it with
+      # overridden locations so the runner's real Start menu/registry are untouched.
+      - name: Package + install/uninstall smoke test
+        shell: pwsh
+        run: |
+          ./tools/package-windows.ps1
+          $t = Join-Path $env:RUNNER_TEMP 'pkgtest'
+          Expand-Archive dist/windows/contextGIST-0.0.0-prototype-x64.zip "$t/pkg"
+          New-Item -ItemType Directory "$t/sm" | Out-Null
+          $a = @{ InstallDir = "$t/inst"; StartMenuDir = "$t/sm"; UninstallKey = 'HKCU:\Software\contextGISTTest' }
+          & "$t/pkg/install.ps1" @a
+          foreach ($p in "$t/inst/bin/capture-prober.exe", "$t/sm/contextGIST.lnk", $a.UninstallKey) {
+            if (-not (Test-Path $p)) { throw "missing after install: $p" }
+          }
+          Copy-Item "$t/inst/uninstall.ps1" "$t/u.ps1"
+          & "$t/u.ps1" @a
+          foreach ($p in "$t/inst", "$t/sm/contextGIST.lnk", $a.UninstallKey) {
+            if (Test-Path $p) { throw "residue after uninstall: $p" }
+          }
