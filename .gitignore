@@ -34,3 +34,4 @@
 /dist/macos/SHA256SUMS
 /dist/windows/*.zip
 /dist/windows/SHA256SUMS
+/dist/windows/*.msix
