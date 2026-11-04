@@ -91,6 +91,8 @@ jobs:
           }
           Copy-Item "$t/inst/uninstall.ps1" "$t/u.ps1"
           & "$t/u.ps1" @a
+          # The folder itself is removed by a detached cmd a moment after we exit.
+          for ($i = 0; $i -lt 20 -and (Test-Path "$t/inst"); $i++) { Start-Sleep 1 }
           foreach ($p in "$t/inst", "$t/sm/contextGIST.lnk", $a.UninstallKey) {
             if (Test-Path $p) { throw "residue after uninstall: $p" }
           }
@@ -117,5 +119,5 @@ jobs:
           # No -InstallDir: the folder comes from the registered InstallLocation.
           Copy-Item "$t/inst/uninstall.ps1" "$t/u.ps1"
           & "$t/u.ps1" @a
-          Start-Sleep 4
+          for ($i = 0; $i -lt 20 -and (Test-Path "$t/inst"); $i++) { Start-Sleep 1 }
           foreach ($p in "$t/inst", $a.UninstallKey) { if (Test-Path $p) { throw "residue: $p" } }
