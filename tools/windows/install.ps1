@@ -7,6 +7,7 @@
   shortcut and an "Apps & Features" entry (HKCU) so Windows can uninstall it.
   Writes nothing else: no services, scheduled tasks, startup entries or
   machine-wide registry keys. uninstall.ps1 removes exactly these things.
+  Re-running upgrades in place and removes files left by an older version.
 #>
 [CmdletBinding()]
 param(
@@ -23,15 +24,31 @@ $src = $PSScriptRoot
 $app = Get-Content (Join-Path $src 'app.json') -Raw | ConvertFrom-Json
 if (-not (Test-Path (Join-Path $src "bin\$($app.exe)"))) { throw "bin\$($app.exe) is missing from the package." }
 
-# Refuse to overwrite a running copy rather than fail halfway.
-$running = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) }
+# Normalise, and refuse anything that is not a plain folder path: a drive root
+# or a relative path would make the later copy and uninstall dangerous.
+$InstallDir = [System.IO.Path]::GetFullPath($InstallDir).TrimEnd('\')
+if ($InstallDir -eq [System.IO.Path]::GetPathRoot($InstallDir).TrimEnd('\')) { throw "Refusing to install into a drive root: $InstallDir" }
+
+# Never write into a folder that holds someone else's files.
+if ((Test-Path $InstallDir) -and (Get-ChildItem $InstallDir -Force | Select-Object -First 1) -and -not (Test-Path (Join-Path $InstallDir 'app.json'))) {
+    throw "$InstallDir exists and is not a contextGIST install. Choose an empty folder."
+}
+
+# Refuse to overwrite a running copy rather than fail halfway. Exact folder
+# match (trailing separator), so a sibling like contextGIST2 is not confused.
+$prefix = $InstallDir + '\'
+$running = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) }
 if ($running) { throw "contextGIST is running. Close it and run the installer again." }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+# Replace bin\ wholesale so files removed in a newer version don't linger.
+$binDest = Join-Path $InstallDir 'bin'
+if (Test-Path $binDest) { Remove-Item $binDest -Recurse -Force }
 Copy-Item (Join-Path $src 'bin') $InstallDir -Recurse -Force
 foreach ($f in 'app.json', 'uninstall.ps1', 'uninstall.cmd', 'THIRD-PARTY.md') {
     $p = Join-Path $src $f
     if (Test-Path $p) { Copy-Item $p $InstallDir -Force }
+    elseif (Test-Path (Join-Path $InstallDir $f)) { Remove-Item (Join-Path $InstallDir $f) -Force }
 }
 
 $exePath = Join-Path $InstallDir "bin\$($app.exe)"
@@ -50,6 +67,7 @@ if (-not $NoRegistry) {
         DisplayName     = 'contextGIST'
         DisplayVersion  = $app.version
         Publisher       = 'contextGIST'
+        # uninstall.ps1 reads this back, so a custom -InstallDir is removed correctly.
         InstallLocation = $InstallDir
         UninstallString = "`"$env:SystemRoot\System32\cmd.exe`" /c `"$(Join-Path $InstallDir 'uninstall.cmd')`""
     }
