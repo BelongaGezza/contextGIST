@@ -31,3 +31,4 @@
 *.csv
 .env
 .env.*
+/dist/macos/SHA256SUMS
