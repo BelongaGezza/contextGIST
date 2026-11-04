@@ -19,9 +19,13 @@ WHAT IT DOES
   Nothing else: no services, scheduled tasks, startup entries, or
   machine-wide settings.
 
+UPDATE
+  Unzip the new version and run install.cmd again. It replaces the old files.
+
 REMOVE
   Settings -> Apps -> Installed apps -> contextGIST -> Uninstall
-  (or double-click uninstall.cmd in the install folder). This deletes the
+  (or double-click uninstall.cmd in the install folder). It refuses to
+  delete anything that is not a contextGIST install. This deletes the
   folder, the Start menu shortcut and the Apps & Features entry.
 
 More detail: docs/WINDOWS_PLAN.md in the source repo,
