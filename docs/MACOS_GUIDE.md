@@ -1,8 +1,29 @@
 # macOS: install, use, remove
 
-There's no signed release yet (see `docs/SECURITY_REVIEW.md` finding #3),
-so today the only way to run contextGIST is building it from source. This
-doc covers that, day-to-day use once it's installed, and a clean removal.
+There's no signed or notarized release yet (see `docs/SECURITY_REVIEW.md`
+finding #3), so you build a DMG yourself from source (below) or install one
+from a source you trust. This doc covers installing, day-to-day use, and a
+clean removal.
+
+## Quick install (from a DMG)
+
+1. Open the DMG and drag `contextGIST.app` onto the `Applications` shortcut.
+2. The build is unsigned, so macOS blocks the first launch. Double-click the
+   app, then open System Settings → Privacy & Security and click **Open
+   Anyway**. Only do this for a copy you trust; if a `SHA256SUMS` file came
+   with it, check `shasum -a 256 contextGIST.dmg` against it first.
+3. Launch it once (nothing visible happens; it quits itself after about 10
+   seconds). The Services item should now appear — see Use below.
+
+If the item doesn't appear, follow step 6 of the source install (`lsregister`
+and `pbs -flush`) or see Troubleshooting. Whether those steps are ever
+required on a plain drag-install is still to be confirmed on a fresh Mac.
+
+Do not distribute the DMG currently committed at `dist/macos/contextGIST.dmg`;
+it predates the S-01 fix and carries the `get-task-allow` entitlement. Build a
+fresh one with `./tools/package-macos.sh`.
+
+## Build from source
 
 ## Requirements
 
@@ -156,8 +177,10 @@ saved: no history, no library, no reading position, no settings.
 ## Remove
 
 contextGIST never writes preferences, history, or any file of its own (see
-`docs/SECURITY_REVIEW.md`), so removing it is close to just deleting the
-app:
+`docs/SECURITY_REVIEW.md`), so **the simple removal is to quit it and drag
+`/Applications/contextGIST.app` to the Trash**; the Services item goes away
+by itself (log out and back in if it lingers). The steps below are the
+thorough version, for a fully clean removal or a ghost menu item:
 
 1. **Quit it if it's running** (normally unnecessary — it terminates
    itself once its popup closes):
@@ -209,8 +232,8 @@ app:
    itself writes anything there — contextGIST's is empty scaffolding, but
    remove it if you want zero trace:
    ```bash
-   rm -rf ~/Library/Containers/com.contextgist.macos
-   rm -rf "~/Library/Saved Application State/com.contextgist.macos.savedState"
+   rm -rf "$HOME/Library/Containers/com.contextgist.macos"
+   rm -rf "$HOME/Library/Saved Application State/com.contextgist.macos.savedState"
    ```
 
 That's everything — there's no login item, launch agent, preferences
