@@ -1,6 +1,6 @@
 # contextGIST — Privacy
 
-**Status:** reviewed 2026-10-21 (claims corrected; see `docs/REVIEW_2026-10-21.md`). Covers macOS only. Describes what the shipped code
+**Status:** reviewed 2026-10-21 (claims corrected; see `docs/REVIEW_2026-10-21.md`). Sections 1-6 cover macOS only; section 7 covers Windows (no app yet). Describes what the shipped code
 actually does today, following the format of GIST's `docs/PRIVACY.md`
 (GIST commit 17154ea). Each claim cites the file that backs it, so it can
 be re-verified against the source. Re-check this document whenever
@@ -81,3 +81,55 @@ and `gist-model`). The linked crate set includes crates capable of file I/O
 are dead-stripped from the binary is not verified. Some dependencies contain
 `unsafe` code (for example `encoding_rs`). contextGIST's Rust surface
 (`crates/contextgist-ffi/src/lib.rs`) is three pure functions with no I/O.
+
+## 7. Windows (not shipped yet)
+
+There is **no contextGIST Windows app yet**, so nothing in sections 1-6 has a
+Windows counterpart to describe. What exists is a throwaway research tool
+(`apps/windows/spikes/capture-prober`) and prototype packaging
+(`tools/package-windows.ps1`, `tools/windows/`). This section records what
+those do, and the commitments and known differences for the real app
+(`docs/WINDOWS_PLAN.md` sections 4 and 7). Update it before the first release.
+
+**The installer (prototype).** `install.cmd`/`install.ps1` run as the current
+user and need no administrator rights. They write three things, and
+`uninstall.ps1` removes exactly those:
+
+1. the app folder, `%LOCALAPPDATA%\Programs\contextGIST`;
+2. one Start menu shortcut, `contextGIST.lnk`;
+3. one Apps & Features entry under
+   `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\contextGIST`.
+
+No service, scheduled task, start-at-login entry or machine-wide setting is
+created. The installer and uninstaller refuse to touch a folder that is not a
+contextGIST install. The CI job `windows.yml` installs and uninstalls the
+package and fails on any leftover.
+
+**The capture spike.** It reads the text selected in another app with Windows
+UI Automation to measure how reliably that works. It prints and logs metadata
+only (process, control type, outcome, character count, timing) and never
+prints or stores the selected text (`apps/windows/spikes/capture-prober/README.md`).
+It is a measurement tool, not production code.
+
+**Differences from macOS that the real app will have (disclose, do not hide):**
+
+- **Not sandboxed.** Reading another process's selection needs a full-trust
+  app (`runFullTrust`), so the macOS App Sandbox guarantee does not carry over
+  (WINDOWS_PLAN W6). The app will have no network capability and
+  `deny.toml` bans networking crates, but Windows will not enforce that.
+- **A resident process is likely.** Windows has no Services-menu equivalent, so
+  the app must fetch the selection itself, normally from a global hotkey. If it
+  stays running between uses, "the process exits when the popup closes" no
+  longer holds; the process model is still undecided (WINDOWS_PLAN section 3).
+- **Reading the selection may switch on accessibility** inside Chromium and
+  Electron apps while contextGIST queries them.
+- **Crash dumps (Windows Error Reporting), the pagefile and hibernation** may
+  hold selected text, as the macOS crash-report note in section 5 describes.
+  They cannot be disabled per process without administrator-level settings.
+- **The popup** exposes each word to accessibility clients and can be captured
+  by screenshots or Windows Recall unless the window opts out of capture.
+- **An install in your user profile can be replaced by any program running as
+  you.** A packaged (MSIX) install avoids this; the zip installer does not
+  (`docs/WINDOWS_INSTALL_OPTIONS.md`).
+- **Unsigned builds.** SmartScreen will warn on a downloaded copy until a
+  signing route is chosen. Verify the `SHA256SUMS` file for any download.
