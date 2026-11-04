@@ -1,0 +1,28 @@
+contextGIST - install instructions (Windows 11, x64)
+====================================================
+
+PROTOTYPE PACKAGE. There is no contextGIST Windows app yet; this package
+carries a test program to prove the install and uninstall steps work.
+
+INSTALL
+  1. Unzip the download to any folder.
+  2. Double-click install.cmd. No administrator rights are needed.
+  Windows SmartScreen may say "Windows protected your PC" because this build
+  is not signed. Only continue for a copy from a source you trust (check the
+  SHA256SUMS file: in PowerShell run  Get-FileHash <zipfile>  and compare).
+  Click "More info" -> "Run anyway". If the zip was marked as downloaded,
+  you can also right-click the zip -> Properties -> Unblock before unzipping.
+
+WHAT IT DOES
+  - copies the app to %LOCALAPPDATA%\Programs\contextGIST
+  - adds a Start menu shortcut and an Apps & Features entry (current user)
+  Nothing else: no services, scheduled tasks, startup entries, or
+  machine-wide settings.
+
+REMOVE
+  Settings -> Apps -> Installed apps -> contextGIST -> Uninstall
+  (or double-click uninstall.cmd in the install folder). This deletes the
+  folder, the Start menu shortcut and the Apps & Features entry.
+
+More detail: docs/WINDOWS_PLAN.md in the source repo,
+https://github.com/BelongaGezza/contextGIST

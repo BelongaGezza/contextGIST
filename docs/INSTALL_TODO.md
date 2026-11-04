@@ -19,12 +19,12 @@ proven with the capture-prober spike as a stand-in payload.
 - [ ] **[Win]** Check signing eligibility (country / entity type) for Azure
       Artifact Signing vs OV certificate vs unsigned (WINDOWS_PLAN section 6).
       Re-check prices before buying.
-- [ ] **[Win]** Prototype `tools/package-windows.ps1` using the
+- [x] **[Win]** (done: PR for windows/packaging-prototype) Prototype `tools/package-windows.ps1` using the
       `apps/windows/spikes/capture-prober` binary as the payload: `cargo build
       --release` for x64, stage files, produce `dist/windows/*.zip`, write
       `SHA256SUMS`. No absolute paths; `rustup target add` inside the script, not
       in `rust-toolchain.toml`.
-- [ ] **[Win]** Compare install formats with the prototype and record the
+- [ ] **[Win]** (zip + per-user install.cmd/uninstall.cmd prototyped and tested; MSIX, winget, Inno Setup still to compare) Compare install formats with the prototype and record the
       trade-offs: (a) zip + `INSTALL.txt`, (b) per-user MSIX, (c) winget manifest
       pointing at a GitHub Release, (d) Inno Setup / WiX per-user installer.
       Criteria: one-click, SmartScreen behaviour when unsigned, clean uninstall,
