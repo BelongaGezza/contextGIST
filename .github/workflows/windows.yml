@@ -94,3 +94,28 @@ jobs:
           foreach ($p in "$t/inst", "$t/sm/contextGIST.lnk", $a.UninstallKey) {
             if (Test-Path $p) { throw "residue after uninstall: $p" }
           }
+      # Installer hardening: upgrades drop stale files, and neither script will
+      # touch a folder that is not a contextGIST install.
+      - name: Installer safety checks
+        shell: pwsh
+        run: |
+          $t = Join-Path $env:RUNNER_TEMP 'pkgtest2'
+          Expand-Archive dist/windows/contextGIST-0.0.0-prototype-x64.zip "$t/pkg"
+          New-Item -ItemType Directory "$t/sm", "$t/foreign" | Out-Null
+          Set-Content "$t/foreign/keep.txt" x
+          $a = @{ StartMenuDir = "$t/sm"; UninstallKey = 'HKCU:\Software\contextGISTTest2' }
+          & "$t/pkg/install.ps1" -InstallDir "$t/inst" @a
+          Set-Content "$t/inst/bin/stale.dll" x
+          & "$t/pkg/install.ps1" -InstallDir "$t/inst" @a
+          if (Test-Path "$t/inst/bin/stale.dll") { throw 'stale file survived an upgrade' }
+          foreach ($case in @({ & "$t/pkg/install.ps1" -InstallDir "$t/foreign" @a },
+                              { & "$t/pkg/uninstall.ps1" -InstallDir "$t/foreign" @a })) {
+            $threw = $false; try { & $case } catch { $threw = $true }
+            if (-not $threw) { throw 'script touched a non-contextGIST folder' }
+          }
+          if (-not (Test-Path "$t/foreign/keep.txt")) { throw 'foreign file was deleted' }
+          # No -InstallDir: the folder comes from the registered InstallLocation.
+          Copy-Item "$t/inst/uninstall.ps1" "$t/u.ps1"
+          & "$t/u.ps1" @a
+          Start-Sleep 4
+          foreach ($p in "$t/inst", $a.UninstallKey) { if (Test-Path $p) { throw "residue: $p" } }
