@@ -41,7 +41,7 @@ proven with the capture-prober spike as a stand-in payload.
 - [ ] **[Win]** Add `windows-v*` tag release workflow (`windows-latest`) that
       runs the packaging script, signs with secrets if available, and publishes
       to GitHub Releases with the hash. Installers do not go in the repo.
-- [ ] **[Win]** Write the Windows section of `docs/PRIVACY.md` (not sandboxed
+- [x] **[Win]** Write the Windows section of `docs/PRIVACY.md` (not sandboxed
       unless MSIX; what is and isn't persisted) and an `INSTALL.txt` including a
       "Remove" section. Update `dist/windows/README.md`.
 - [ ] **[Win]** Pre-submission check for Store / Defender acceptance of a

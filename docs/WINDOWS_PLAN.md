@@ -227,7 +227,10 @@ in the next macOS session before tagging a macOS release.
   manual "new version" notice. An unsigned resident app with no update path
   never receives security fixes.
 - `tools/package-windows.ps1` builds, packages, signs (cert from env/CI
-  secret) and writes `dist/windows/` plus `INSTALL.txt`. It also runs
+  secret) and writes `dist/windows/` plus `INSTALL.txt`. **Prototype exists**
+  (2026-11-04): zip with per-user `install.cmd`/`uninstall.cmd`, unsigned, spike
+  payload; MSIX and winget prototypes and the comparison are in
+  [`WINDOWS_INSTALL_OPTIONS.md`](./WINDOWS_INSTALL_OPTIONS.md). It also runs
   `rustup target add` for Windows triples (not `rust-toolchain.toml`).
 - Release workflow on `windows-v*` tags; installers go to GitHub Releases, not
   the repo.
@@ -252,7 +255,7 @@ S-14 are fixed in code but unverified against live apps
 | Memory-safe core | `#![deny(unsafe_code)]` everywhere except one `win32` module, each block with a `// SAFETY:` comment. The core also depends on unsafe crates (`encoding_rs`, `memchr`, ...) |
 | Text discarded on close | Drop-counter test. Weaker under the resident model (section 3) |
 | **Hand-off to the reader process** | Anonymous inherited pipe/handle only; **never** argv, env, files, named pipes or the clipboard (command lines are readable by same-user processes and logged by EDR/Event 4688) |
-| **Install location / binary replacement** | A per-user install is replaceable by any same-user process. Resolve the reader by absolute path from `GetModuleFileNameW`; prefer an admin-writable location or document the trade-off |
+| **Install location / binary replacement** | A per-user install is replaceable by any same-user process. Resolve the reader by absolute path from `GetModuleFileNameW`; prefer an admin-writable location or document the trade-off. MSIX installs into a protected folder, which removes this risk ([`WINDOWS_INSTALL_OPTIONS.md`](./WINDOWS_INSTALL_OPTIONS.md)); the prototype zip installer does not |
 | **Cumulative cap** | 512 KiB UTF-8 across all ranges; `EM_GETSEL` end bounded before allocation; `ES_PASSWORD` re-checked in the fallback |
 | **Hotkey** | Avoid AltGr combinations (`Ctrl+Alt+R` is AltGr+R on many European layouts); single-flight capture; report registration failure, never override silently |
 | **Popup text visible to other processes** | The popup's UIA tree exposes each word to screen readers and automation clients; screenshots and Windows Recall may capture it. Set `WDA_EXCLUDEFROMCAPTURE`; disclose that it does not stop UIA clients |

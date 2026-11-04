@@ -89,7 +89,7 @@ v1 = hotkey + UI Automation capture + manual paste, x64, direct download.
   oversized-token golden cases; keep Swift/golden paths unchanged until a macOS session.
 - [ ] **W3** `apps/windows`: popup, `RegisterHotKey`, UIA capture (password refusal,
   512 KiB cap, worker thread + timeout), manual paste, per-failure messages.
-- [ ] **W4** `tools/package-windows.ps1`, `dist/windows/`, `INSTALL.txt`,
+- [ ] **W4** (prototype zip + MSIX + winget done, see `docs/WINDOWS_INSTALL_OPTIONS.md`) `tools/package-windows.ps1`, `dist/windows/`, `INSTALL.txt`,
   `WINDOWS_GUIDE.md`, `THIRD-PARTY.md`, Windows security pass, update path.
 - [ ] **W5** First release `windows-vX.Y.Z` (signing per owner eligibility).
 - [ ] Post-v1, separate releases: Share Target, opt-in Ctrl+C, ARM64, MSIX/Store,
