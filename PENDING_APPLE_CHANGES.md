@@ -4,7 +4,13 @@ Changes needed in `apps/macos/` (Swift, Xcode project, Info.plist, signing)
 that were found in non-macOS sessions and must be made and verified on the
 macOS machine (`CLAUDE.md` section 7). Findings referenced here are in
 [`docs/REVIEW_2026-10-21.md`](docs/REVIEW_2026-10-21.md). Last updated
-2026-10-25; delete an item when it lands and is verified on a Mac.
+2026-11-07; delete an item when it lands and is verified on a Mac.
+
+## Verified by hand on a Mac (2026-11-07, DMG built from `main` at `7775e80`)
+
+The rebuilt `dist/macos/contextGIST.dmg` (GIST pin `4c575dd`) was installed to
+`/Applications` and the Services flow checked by eye: all good. Its binary has
+no `get-task-allow`. S-10 and Q-17 remain covered only by review and CI.
 
 ## Verified by hand on a Mac (2026-10-25, Release build of `main` at `b2bff15`, M1 Pro)
 
@@ -28,14 +34,16 @@ code review and CI.
   The committed DMG in `dist/macos/` was rebuilt 2026-11-07 (no `get-task-allow`, universal).
 - S-10 `isRestorable = false`; S-11 raw pasteboard size check; Q-17 stale
   close-callback guard.
+- S-01 (signing side, 2026-11-07): `release-sign.sh` refuses an app carrying
+  `get-task-allow`, before signing and again on the signed result. Tested with
+  an app re-signed to carry it (refused) and the real app (passes).
 - Q-15 (2026-10-25, PR #13): long words were truncated (`Pneumono…icros`);
   `WordDisplay` now scales the word to fit, keeping the focal letter centred.
   Verified by eye. Upstream GIST may have the same bug: BelongaGezza/gist#131.
 
 ## Other Apple-side items from the review (not yet started)
 
-- Consider `sharingType = .none` (S-10);
-  `release-sign.sh` entitlement gate.
+- Consider `sharingType = .none` (S-10).
 - Monotonic clock instead of `Date()` (Q-14); weak self around `Task.sleep` (Q-21).
 - RTL/CJK width maths (Q-16), a status result from
   `tokenize` instead of an empty list (Q-18; changes the uniffi signature).
