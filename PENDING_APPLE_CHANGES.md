@@ -25,7 +25,7 @@ code review and CI.
   words, oversized-word chunk bytes. `setWpm` cases not yet covered.
 - S-01 (build side): Release sets `CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO`
   (verified: no `get-task-allow`); `build-dmg.sh` refuses an app that has it.
-  **The committed DMG in `dist/macos/` is still the old one: rebuild or retire it.**
+  The committed DMG in `dist/macos/` was rebuilt 2026-11-07 (no `get-task-allow`, universal).
 - S-10 `isRestorable = false`; S-11 raw pasteboard size check; Q-17 stale
   close-callback guard.
 - Q-15 (2026-10-25, PR #13): long words were truncated (`Pneumono…icros`);
@@ -34,7 +34,7 @@ code review and CI.
 
 ## Other Apple-side items from the review (not yet started)
 
-- Rebuild/retire the committed DMG (S-01, S-09); consider `sharingType = .none` (S-10);
+- Consider `sharingType = .none` (S-10);
   `release-sign.sh` entitlement gate.
 - Monotonic clock instead of `Date()` (Q-14); weak self around `Task.sleep` (Q-21).
 - RTL/CJK width maths (Q-16), a status result from

@@ -136,7 +136,7 @@ new source file (XcodeGen needs to re-scan `Sources/`).
 
 ## Current state
 
-Last rebased 2026-10-21. The ordered work list and review findings live in
+Last rebased 2026-11-07. The ordered work list and review findings live in
 `docs/DEVELOPMENT_PLAN.md` (status snapshot at the top); this section is only
 the engineering baseline.
 
@@ -146,15 +146,15 @@ the engineering baseline.
   `cargo fmt --all --check` and `cargo clippy -D warnings` are clean and gated
   in CI. The Windows spike is its own workspace (`apps/windows/spikes/capture-prober`,
   9 unit tests, fmt/clippy clean, built in `windows.yml`).
-- **Upstream:** `Cargo.toml` pin == `UPSTREAM_BASELINE` == GIST `5e25545`
-  (asserted in CI; no unreviewed upstream changes as of 2026-10-21).
+- **Upstream:** `Cargo.toml` pin == `UPSTREAM_BASELINE` == GIST `4c575dd`
+  (asserted in CI; reviewed 2026-11-04, no unreviewed upstream changes).
 - **macOS app:** the Services flow is confirmed hands-on (popup plays, close
   discards text, the process exits when idle). `contextGISTTests` (11 parity
   tests against `apps/macos/Tests/golden.json`) runs in CI (14 tests now).
   The Rust-core and Swift parity changes were verified by hand on a Mac on
   2026-10-25 (see `PENDING_APPLE_CHANGES.md`). Builds are
-  unsigned; the committed DMG carries `get-task-allow` and must not be
-  distributed (S-01). Developer ID signing/notarization is blocked on an Apple
+  unsigned; the committed DMG was rebuilt 2026-11-07 without
+  `get-task-allow` (S-01 build side) but is still unsigned, so don't distribute it. Developer ID signing/notarization is blocked on an Apple
   Developer account.
 - **CI:** `ci.yml` (cargo test, fmt, clippy, cargo deny, baseline==pin,
   unsigned Debug `xcodebuild` + XCTest, weekly upstream check) and
