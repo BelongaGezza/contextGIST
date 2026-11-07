@@ -40,6 +40,18 @@ for arch in arm64 x86_64; do
     fi
 done
 
+# S-01: a debuggable build (get-task-allow) must never be signed for release.
+# Checked before signing (a Debug build or a Release without
+# CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO) and again after, because codesign
+# re-applies $ENTITLEMENTS and the result is what actually ships.
+has_get_task_allow() {
+    codesign -d --entitlements - "$1" 2>/dev/null | grep -q 'get-task-allow'
+}
+if has_get_task_allow "$APP_PATH"; then
+    echo "error: $APP_PATH carries com.apple.security.get-task-allow (Debug build, or Release without CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO). Rebuild with tools/package-macos.sh." >&2
+    exit 1
+fi
+
 # Don't ship on top of upstream GIST changes nobody has reviewed: they're
 # compiled in (shared crates) or may need porting (see
 # tools/upstream-review.sh). ALLOW_UNREVIEWED_UPSTREAM=1 overrides, loudly.
@@ -75,6 +87,10 @@ codesign --verify --strict --verbose=2 "$APP_PATH"
 FLAGS="$(codesign -dv "$APP_PATH" 2>&1 | grep -o 'flags=[^ ]*')"
 if [[ "$FLAGS" != *runtime* ]]; then
     echo "error: Hardened Runtime is not set on the signed app ($FLAGS)" >&2
+    exit 1
+fi
+if has_get_task_allow "$APP_PATH"; then
+    echo "error: get-task-allow is present on the signed app (check $ENTITLEMENTS)" >&2
     exit 1
 fi
 if ! codesign -d --entitlements - "$APP_PATH" 2>/dev/null | grep -q 'com.apple.security.app-sandbox'; then
