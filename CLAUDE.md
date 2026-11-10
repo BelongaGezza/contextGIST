@@ -146,7 +146,7 @@ the engineering baseline.
   `cargo fmt --all --check` and `cargo clippy -D warnings` are clean and gated
   in CI. The Windows spike is its own workspace (`apps/windows/spikes/capture-prober`,
   9 unit tests, fmt/clippy clean, built in `windows.yml`).
-- **Upstream:** `Cargo.toml` pin == `UPSTREAM_BASELINE` == GIST `4c575dd`
+- **Upstream:** `Cargo.toml` pin == `UPSTREAM_BASELINE` == GIST `0f040db`
   (asserted in CI; reviewed 2026-11-04, no unreviewed upstream changes).
 - **macOS app:** the Services flow is confirmed hands-on (popup plays, close
   discards text, the process exits when idle). `contextGISTTests` (11 parity

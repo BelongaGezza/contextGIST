@@ -17,9 +17,9 @@ uniffi     = "0.32"
 # This rev is the single source of truth for what contextGIST builds against;
 # `tools/upstream-review.sh --record` moves it (and UPSTREAM_BASELINE) after a
 # review. Local GIST checkouts are NOT consulted.
-gist-model     = { git = "https://github.com/BelongaGezza/gist", rev = "4c575ddf629ebf2a47a5bac5b40f76a71e92f215" }
-gist-parse-txt = { git = "https://github.com/BelongaGezza/gist", rev = "4c575ddf629ebf2a47a5bac5b40f76a71e92f215" }
-gist-rsvp      = { git = "https://github.com/BelongaGezza/gist", rev = "4c575ddf629ebf2a47a5bac5b40f76a71e92f215" }
+gist-model     = { git = "https://github.com/BelongaGezza/gist", rev = "0f040db2d406f6ff95bca965aea9fe1ea693187f" }
+gist-parse-txt = { git = "https://github.com/BelongaGezza/gist", rev = "0f040db2d406f6ff95bca965aea9fe1ea693187f" }
+gist-rsvp      = { git = "https://github.com/BelongaGezza/gist", rev = "0f040db2d406f6ff95bca965aea9fe1ea693187f" }
 
 [profile.release]
 # Must stay "unwind": contextgist-ffi's `contain` (panic containment at the

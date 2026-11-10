@@ -299,7 +299,7 @@ dependencies = [
 [[package]]
 name = "gist-model"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=4c575ddf629ebf2a47a5bac5b40f76a71e92f215#4c575ddf629ebf2a47a5bac5b40f76a71e92f215"
+source = "git+https://github.com/BelongaGezza/gist?rev=0f040db2d406f6ff95bca965aea9fe1ea693187f#0f040db2d406f6ff95bca965aea9fe1ea693187f"
 dependencies = [
  "serde",
  "serde_json",
@@ -311,7 +311,7 @@ dependencies = [
 [[package]]
 name = "gist-parse-txt"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=4c575ddf629ebf2a47a5bac5b40f76a71e92f215#4c575ddf629ebf2a47a5bac5b40f76a71e92f215"
+source = "git+https://github.com/BelongaGezza/gist?rev=0f040db2d406f6ff95bca965aea9fe1ea693187f#0f040db2d406f6ff95bca965aea9fe1ea693187f"
 dependencies = [
  "chardetng",
  "encoding_rs",
@@ -322,7 +322,7 @@ dependencies = [
 [[package]]
 name = "gist-rsvp"
 version = "0.1.0"
-source = "git+https://github.com/BelongaGezza/gist?rev=4c575ddf629ebf2a47a5bac5b40f76a71e92f215#4c575ddf629ebf2a47a5bac5b40f76a71e92f215"
+source = "git+https://github.com/BelongaGezza/gist?rev=0f040db2d406f6ff95bca965aea9fe1ea693187f#0f040db2d406f6ff95bca965aea9fe1ea693187f"
 dependencies = [
  "gist-model",
  "serde",

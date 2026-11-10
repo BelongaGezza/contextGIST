@@ -98,7 +98,7 @@ History of reviews:
 | 2026-10-18 | `c6e74f3` | `origin/main` | Adopted c6e74f3: gist-parse-txt encoding detection (no-op for valid-UTF-8 selections), gist-model metadata additions; skipped Windows/Linux/Apple/library/web work. Tests 15/15, deny ok. |
 | 2026-10-19 | `5e25545` | `origin/main` | no applicable changes |
 | 2026-10-24 | `9be1700` | `origin/main` | Reviewed 5e25545..9be1700: no changes to shared crates, Swift pacing/ORP or icon. #130 (ureq 3, RUSTSEC-2026-0381/0382/0385) is gist-web only, crates not in our lockfile; basic-toml RUSTSEC-2026-0374 ignore skipped, advisories check passes. zip bumps GIST-only. |
-| 2026-11-04 | `4c575dd` | `origin/main` | adopted 0e165c1 (encoding-detection now a default-on feature, no behaviour change); skipped a83ee47 (Q-15 long-word scaling already done independently), Windows-only, doc and dependency-bump commits |
+| 2026-11-04 | `0f040db` | `origin/main` | adopted 0e165c1 (encoding-detection now a default-on feature, no behaviour change); skipped a83ee47 (Q-15 long-word scaling already done independently), Windows-only, doc and dependency-bump commits |
 
 See also `docs/SECURITY_REVIEW.md` finding #4.
 
