@@ -6,8 +6,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
     groups:
       actions-minor-patch:
         update-types:
@@ -18,8 +20,10 @@ updates:
       - /
       - /apps/windows/spikes/capture-prober
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
     groups:
       cargo-minor-patch:
         update-types:
